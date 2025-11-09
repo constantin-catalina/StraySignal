@@ -31,7 +31,6 @@ export default function BottomTabBar({ state, descriptors, navigation }: BottomT
           });
         };
 
-        // Icon mapping
         const getIcon = () => {
           switch (route.name) {
             case 'home':
@@ -49,7 +48,6 @@ export default function BottomTabBar({ state, descriptors, navigation }: BottomT
           }
         };
 
-        // Label mapping
         const getLabel = () => {
           switch (route.name) {
             case 'home':
@@ -134,7 +132,7 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     backgroundColor: '#1C1C1E',
-    paddingBottom: Platform.OS === 'ios' ? 20 : 10,
+  paddingBottom: Platform.OS === 'ios' ? 44 : 34,
     paddingTop: 8,
     paddingHorizontal: 8,
     borderTopWidth: 0.5,
@@ -154,8 +152,8 @@ const styles = StyleSheet.create({
   signalContainer: {
     flex: 1,
     alignItems: 'center',
-    justifyContent: 'flex-start',
-    marginTop: -40,
+    justifyContent: 'center',
+    marginTop: 0,
   },
   signalButtonOuter: {
     width: 85,
@@ -171,6 +169,7 @@ const styles = StyleSheet.create({
     elevation: 10,
     borderWidth: 4,
     borderColor: '#1C1C1E',
+    marginTop: -44,
   },
   signalButtonInner: {
     width: 68,

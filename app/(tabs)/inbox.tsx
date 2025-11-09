@@ -14,3 +14,4 @@ export default function Inbox() {
 const styles = StyleSheet.create({
   bg: { flex: 1 },
 });
+

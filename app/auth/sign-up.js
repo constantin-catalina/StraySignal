@@ -158,7 +158,7 @@ const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: 'transparent' },
   wrapper: { flex: 1, paddingTop: Platform.select({ ios: 80, android: 60 }), paddingHorizontal: 24 },
   back: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
-  title: { fontSize: 28, fontWeight: '800', color: NAVY, textAlign: 'center', marginBottom: 20, marginTop: 50 },
+  title: { fontSize: 28, fontWeight: '800', color: NAVY, textAlign: 'center', marginBottom: 30, marginTop: 50 },
 
   cta: { height: 56, borderRadius: 28, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, marginBottom: 12 },
   ctaPrimary: { backgroundColor: NAVY },
