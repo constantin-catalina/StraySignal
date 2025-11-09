@@ -22,33 +22,60 @@ export default function SignInScreen() {
   const redirectUri = makeRedirectUri({ scheme: 'straysignal' });
 
   async function onGooglePress() {
+    // if already signed in, go to home instead of starting OAuth
+    if (isSignedIn) {
+      router.replace('/(tabs)/home');
+      return;
+    }
+
     try {
       const { createdSessionId, setActive: setActiveOAuth } =
         await google.startOAuthFlow({ redirectUrl: redirectUri });
       if (createdSessionId) {
         await setActiveOAuth?.({ session: createdSessionId });
-        router.replace('/');
+        router.replace('/(tabs)/home');
       }
     } catch (e: any) {
-      Alert.alert('Google sign-in failed', e?.message ?? 'Please try again.');
+      // if OAuth fails because user is already signed in, redirect silently
+      const msg = e?.message ?? 'Please try again.';
+      if (msg.toLowerCase().includes('already signed')) {
+        router.replace('/(tabs)/home');
+        return;
+      }
+      Alert.alert('Google sign-in failed', msg);
     }
   }
 
   async function onFacebookPress() {
+    // if already signed in, go to home instead of starting OAuth
+    if (isSignedIn) {
+      router.replace('/(tabs)/home');
+      return;
+    }
+
     try {
       const { createdSessionId, setActive: setActiveOAuth } =
         await facebook.startOAuthFlow({ redirectUrl: redirectUri });
       if (createdSessionId) {
         await setActiveOAuth?.({ session: createdSessionId });
-        router.replace('/');
+        router.replace('/(tabs)/home');
       }
     } catch (e: any) {
-      Alert.alert('Facebook sign-in failed', e?.message ?? 'Please try again.');
+      const msg = e?.message ?? 'Please try again.';
+      if (msg.toLowerCase().includes('already signed')) {
+        router.replace('/(tabs)/home');
+        return;
+      }
+      Alert.alert('Facebook sign-in failed', msg);
     }
   }
 
   async function onEmailPasswordPress() {
     if (!isLoaded) return;
+    if (isSignedIn) {
+      router.replace('/(tabs)/home');
+      return;
+    }
     try {
       const res = await signIn.create({
         identifier: email.trim(),
@@ -56,7 +83,7 @@ export default function SignInScreen() {
       });
       if (res.status === 'complete' && res.createdSessionId) {
         await setActive!({ session: res.createdSessionId });
-        router.replace('/');
+        router.replace('/(tabs)/home');
         return;
       }
     } catch (e: any) {

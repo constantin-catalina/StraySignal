@@ -68,7 +68,7 @@ export default function ForgotPassword() {
                 onChangeText={setEmail}
               />
               <TouchableOpacity style={styles.btn} onPress={requestCode}>
-                <Text style={styles.btnText}>Send reset code</Text>
+                <Text style={styles.btnText}>SEND RESET CODE</Text>
               </TouchableOpacity>
             </>
           ) : (
@@ -123,7 +123,7 @@ const styles = StyleSheet.create({
     fontSize: 28, 
     fontWeight: '800', 
     color: NAVY, 
-    marginTop: 100, 
+    marginTop: 150, 
     marginBottom: 15,
     textAlign: 'center' 
   },
@@ -150,7 +150,7 @@ const styles = StyleSheet.create({
   btnText: { 
     color: LIGHT, 
     fontWeight: '800',
-    fontSize: 16,
+    fontSize: 14,
     letterSpacing: 0.5 
   },
 });
