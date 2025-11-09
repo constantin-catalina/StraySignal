@@ -34,7 +34,7 @@ export default function BottomTabBar({ state, descriptors, navigation }: BottomT
         // Icon mapping
         const getIcon = () => {
           switch (route.name) {
-            case 'index':
+            case 'home':
               return 'home';
             case 'inbox':
               return 'notifications';
@@ -52,7 +52,7 @@ export default function BottomTabBar({ state, descriptors, navigation }: BottomT
         // Label mapping
         const getLabel = () => {
           switch (route.name) {
-            case 'index':
+            case 'home':
               return 'Home';
             case 'inbox':
               return 'Inbox';
