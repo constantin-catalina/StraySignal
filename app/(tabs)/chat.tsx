@@ -1,8 +1,19 @@
-import { SafeAreaView, Text, View } from "react-native";
-export default function Screen() {
+import { StyleSheet } from 'react-native';
+import { ThemedText } from '@/components/themed-text';
+import { ThemedView } from '@/components/themed-view';
+
+export default function Chat() {
   return (
-    <SafeAreaView style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
-      <View><Text>Coming soon…</Text></View>
-    </SafeAreaView>
+    <ThemedView style={styles.center}>
+      <ThemedText type="title">Hello world</ThemedText>
+    </ThemedView>
   );
 }
+
+const styles = StyleSheet.create({
+  center: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+});

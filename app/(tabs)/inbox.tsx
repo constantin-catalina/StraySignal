@@ -1,8 +1,16 @@
-import { SafeAreaView, Text, View } from "react-native";
-export default function Screen() {
+import { ImageBackground, StyleSheet } from 'react-native';
+
+export default function Inbox() {
   return (
-    <SafeAreaView style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
-      <View><Text>Coming soon…</Text></View>
-    </SafeAreaView>
+    <ImageBackground
+      source={require('@/assets/backgrounds/Inbox.png')}
+      style={styles.bg}          
+      resizeMode="cover"
+    >
+    </ImageBackground>
   );
 }
+
+const styles = StyleSheet.create({
+  bg: { flex: 1 },
+});
