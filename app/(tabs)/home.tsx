@@ -70,7 +70,7 @@ export default function HomeScreen() {
             <TouchableOpacity 
               style={styles.card}
               activeOpacity={0.7}
-              onPress={() => {/* Navigate to report lost pet */}}
+              onPress={() => router.push('/report-lost-pet')}
             >
               <View style={styles.cardContent}>
                 <Text style={styles.cardTitle}>Report your lost pet</Text>
@@ -107,7 +107,7 @@ export default function HomeScreen() {
               onPress={() => router.push('/(tabs)/signal')}
             >
               <View style={styles.cardContent}>
-                <Text style={styles.cardTitle}>Check your pet's route</Text>
+                <Text style={styles.cardTitle}>Check your pet&#39;s route</Text>
                 <Text style={styles.cardDescription}>
                   View sightings, heatmaps, and travel history
                 </Text>
@@ -126,7 +126,7 @@ export default function HomeScreen() {
               <View style={styles.cardContent}>
                 <Text style={styles.cardTitle}>Create a printable poster</Text>
                 <Text style={styles.cardDescription}>
-                  Download a shareable poster with your pet's info and QR code
+                  Download a shareable poster with your pet&#39;s info and QR code
                 </Text>
               </View>
               <View style={styles.cardIcon}>

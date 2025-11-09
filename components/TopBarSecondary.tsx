@@ -27,7 +27,7 @@ export default function TopBar({ title = 'StraySignal', onBack, showRightDots = 
 
       {showRightDots ? (
         <TouchableOpacity style={styles.sideButton} accessibilityRole="button">
-          <Ionicons name="ellipsis-vertical" size={18} color={styles.title.color as string} />
+          <Ionicons name="ellipsis-horizontal" size={18} color={styles.title.color as string} />
         </TouchableOpacity>
       ) : (
         <View style={styles.sideButton} />
