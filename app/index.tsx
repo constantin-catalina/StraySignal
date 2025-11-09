@@ -1,6 +1,6 @@
 import { Link } from 'expo-router';
 import React from 'react';
-import { Image, ImageBackground, Platform, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Dimensions, Image, ImageBackground, Platform, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function Welcome() {
@@ -57,8 +57,14 @@ export default function Welcome() {
   );
 }
 
+const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
+
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#81adc8' },
+  root: { 
+    flex: 1, 
+    backgroundColor: '#81adc8',
+    overflow: 'hidden'  // Ensure no content bleeds outside
+  },
 
   // header + logo
   headerSafe: { position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10 },
@@ -66,20 +72,27 @@ const styles = StyleSheet.create({
   logo: { width: 170, height: 44 },
 
   // layout
-  content: { flex: 1, paddingHorizontal: 20},
+  content: { 
+    flex: 1,
+    width: '100%'
+  },
   center: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'flex-end',   // dog sits over the wave, content below
     paddingBottom: 28,
+    paddingHorizontal: 20,  // Add horizontal padding for content
     gap: 12,
+    width: '100%'
   },
 
-  // dog image sized like the mock
+  // dog image sized responsively based on screen dimensions
   dog: {
-    width: 400,
-    height: 300,
-    marginBottom: 100,
+    width: screenWidth * 1.1, // 110% of screen width
+    height: screenHeight * 0.45, // 45% of screen height
+    marginBottom: screenHeight * 0.15, // 13% of screen height
+    alignSelf: 'center',
+    marginHorizontal: -(screenWidth * 0.05) // 5% of screen width as negative margin
   },
 
   // text + CTA
@@ -96,9 +109,13 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   background: {
-  flex: 1,
-  width: '100%',
-  height: '100%',
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    right: 0,
+    bottom: 0,
+    width: '100%',
+    height: '100%'
   },
   ctaText: { color: '#D9D9D9', fontSize: 15, fontWeight: '400', letterSpacing: 0.5 },
 
