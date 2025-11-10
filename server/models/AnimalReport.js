@@ -3,20 +3,16 @@ const mongoose = require('mongoose');
 const animalReportSchema = new mongoose.Schema({
   latitude: {
     type: Number,
-    required: true,
   },
   longitude: {
     type: Number,
-    required: true,
   },
   time: {
     type: String,
-    required: true,
   },
   animalType: {
     type: String,
     required: true,
-    enum: ['DOG', 'CAT', 'Other...'],
   },
   direction: {
     type: String,
@@ -24,7 +20,6 @@ const animalReportSchema = new mongoose.Schema({
   },
   injured: {
     type: Boolean,
-    required: true,
   },
   photos: [{
     type: String, // Store photo URIs or base64 strings
@@ -47,6 +42,28 @@ const animalReportSchema = new mongoose.Schema({
   reportedBy: {
     type: String,
     default: 'anonymous',
+  },
+  // Lost pet specific fields
+  petName: {
+    type: String,
+  },
+  breed: {
+    type: String,
+  },
+  lastSeenLocation: {
+    type: String,
+  },
+  lastSeenDate: {
+    type: Date,
+  },
+  hasReward: {
+    type: Boolean,
+  },
+  hasDistinctiveMarks: {
+    type: Boolean,
+  },
+  distinctiveMarks: {
+    type: String,
   },
 }, {
   timestamps: true, // Adds createdAt and updatedAt automatically

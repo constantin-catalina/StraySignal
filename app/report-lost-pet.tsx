@@ -1,5 +1,6 @@
 import TopBarSecondary from '@/components/TopBarSecondary';
 import { Ionicons } from '@expo/vector-icons';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
@@ -13,7 +14,8 @@ export default function ReportLostPet() {
   const [animalType, setAnimalType] = useState('');
   const [breed, setBreed] = useState('');
   const [lastSeenLocation, setLastSeenLocation] = useState('');
-  const [lastSeenDate, setLastSeenDate] = useState('');
+  const [lastSeenDate, setLastSeenDate] = useState<Date | null>(null);
+  const [showDatePicker, setShowDatePicker] = useState(false);
   const [hasReward, setHasReward] = useState<boolean | null>(null);
   const [hasDistinctiveMarks, setHasDistinctiveMarks] = useState<boolean | null>(null);
   const [distinctiveMarks, setDistinctiveMarks] = useState('');
@@ -58,8 +60,8 @@ export default function ReportLostPet() {
       Alert.alert('Missing Information', 'Please enter where your pet was last seen.');
       return;
     }
-    if (!lastSeenDate.trim()) {
-      Alert.alert('Missing Information', 'Please enter when your pet was last seen.');
+    if (!lastSeenDate) {
+      Alert.alert('Missing Information', 'Please select when your pet was last seen.');
       return;
     }
     if (photos.length < 2) {
@@ -76,26 +78,89 @@ export default function ReportLostPet() {
     }
 
     try {
-      // TODO: Submit to backend
-      console.log('Submitting lost pet report:', {
+      Alert.alert('Uploading', 'Please wait while we submit your report...');
+      
+      // Convert images to base64 if needed
+      const processedPhotos = await Promise.all(
+        photos.map(async (uri) => {
+          // If it's already a base64 string, return it
+          if (uri.startsWith('data:')) {
+            return uri;
+          }
+          // For local URIs, read and convert to base64
+          try {
+            const response = await fetch(uri);
+            const blob = await response.blob();
+            return new Promise<string>((resolve, reject) => {
+              const reader = new FileReader();
+              reader.onloadend = () => {
+                const result = reader.result as string;
+                console.log(`Image ${photos.indexOf(uri) + 1} size:`, result.length);
+                resolve(result);
+              };
+              reader.onerror = reject;
+              reader.readAsDataURL(blob);
+            });
+          } catch (error) {
+            console.error('Error converting image:', error);
+            return uri; // Return original URI if conversion fails
+          }
+        })
+      );
+
+      console.log('Total photos processed:', processedPhotos.length);
+
+      const reportData = {
         petName,
         animalType,
         breed,
         lastSeenLocation,
-        lastSeenDate,
+        lastSeenDate: lastSeenDate?.toISOString(),
         hasReward,
         hasDistinctiveMarks,
-        distinctiveMarks,
+        distinctiveMarks: hasDistinctiveMarks ? distinctiveMarks : '',
         additionalInfo,
-        photos,
+        photos: processedPhotos,
+      };
+
+      const API_URL = 'http://192.168.0.115:3000/api/reports/lost-pet';
+      
+      console.log('Submitting to:', API_URL);
+      console.log('Report data:', { ...reportData, photos: `[${reportData.photos.length} photos]` });
+      
+      const response = await fetch(API_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(reportData),
       });
 
-      Alert.alert('Success', 'Your lost pet report has been submitted!', [
-        { text: 'OK', onPress: () => router.back() }
-      ]);
+      console.log('Response status:', response.status);
+      
+      // Get response text first to see what we're receiving
+      const responseText = await response.text();
+      console.log('Response text:', responseText.substring(0, 200));
+
+      let result;
+      try {
+        result = JSON.parse(responseText);
+      } catch {
+        console.error('Failed to parse response as JSON:', responseText);
+        throw new Error('Server returned an invalid response. Please check if the server is running.');
+      }
+
+      if (result.success) {
+        Alert.alert('Success', 'Your lost pet report has been submitted!', [
+          { text: 'OK', onPress: () => router.back() }
+        ]);
+      } else {
+        throw new Error(result.message || 'Failed to submit report');
+      }
     } catch (error) {
       console.error('Error submitting report:', error);
-      Alert.alert('Error', 'Failed to submit report. Please try again.');
+      const errorMessage = error instanceof Error ? error.message : 'Failed to submit report. Please try again.';
+      Alert.alert('Error', errorMessage + '\n\nMake sure the server is running at http://192.168.0.115:3000');
     }
   };
 
@@ -164,13 +229,30 @@ export default function ReportLostPet() {
 
             {/* Last Seen Date */}
             <Text style={styles.questionText}>When was your pet last seen?</Text>
-            <TextInput
-              style={styles.textInput}
-              placeholder="Enter text..."
-              placeholderTextColor="#999"
-              value={lastSeenDate}
-              onChangeText={setLastSeenDate}
-            />
+            <TouchableOpacity 
+              style={styles.datePickerButton}
+              onPress={() => setShowDatePicker(true)}
+            >
+              <Text style={styles.datePickerText}>
+                {lastSeenDate ? lastSeenDate.toLocaleDateString() : 'Select date...'}
+              </Text>
+              <Ionicons name="calendar-outline" size={24} color="#23395B" />
+            </TouchableOpacity>
+            
+            {showDatePicker && (
+              <DateTimePicker
+                value={lastSeenDate || new Date()}
+                mode="date"
+                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                onChange={(event, selectedDate) => {
+                  setShowDatePicker(Platform.OS === 'ios');
+                  if (selectedDate) {
+                    setLastSeenDate(selectedDate);
+                  }
+                }}
+                maximumDate={new Date()}
+              />
+            )}
 
             {/* Reward */}
             <Text style={styles.questionText}>Are you offering a reward for your pet&apos;s return?</Text>
@@ -327,6 +409,18 @@ const styles = StyleSheet.create({
   textInputMultiline: {
     minHeight: 100,
     textAlignVertical: 'top',
+  },
+  datePickerButton: {
+    backgroundColor: '#D9D9D9',
+    borderRadius: 12,
+    padding: 14,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  datePickerText: {
+    fontSize: 15,
+    color: '#333',
   },
   buttonRow: {
     flexDirection: 'row',

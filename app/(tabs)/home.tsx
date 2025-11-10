@@ -87,7 +87,7 @@ export default function HomeScreen() {
             <TouchableOpacity 
               style={styles.card}
               activeOpacity={0.7}
-              onPress={() => {/* Navigate to cases */}}
+              onPress={() => router.push('/active-cases')}
             >
               <View style={styles.cardContent}>
                 <Text style={styles.cardTitle}>View your cases</Text>

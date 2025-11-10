@@ -24,38 +24,32 @@ let attempt = 0;
 
 function connectWithRetry() {
   attempt++;
-  console.log(`🔌 Attempting MongoDB connection (attempt ${attempt}/${MAX_RETRIES}) ...`);
+  console.log(`Attempting MongoDB connection...`);
   const options = {};
   if (MONGODB_DB_NAME) {
     options.dbName = MONGODB_DB_NAME;
-    console.log(`🗃  Using database name: ${MONGODB_DB_NAME}`);
   }
   mongoose.connect(MONGODB_URI, options)
     .then(() => {
-      console.log('✅ Connected to MongoDB');
+      console.log('Connected to MongoDB');
     })
     .catch(err => {
-      console.error('❌ MongoDB connection error:', err.message);
+      console.error('MongoDB connection error:', err.message);
       if (attempt < MAX_RETRIES) {
         const delay = attempt * 2000;
-        console.log(`⏳ Retrying in ${(delay/1000).toFixed(1)}s...`);
+        console.log(`Retrying in ${(delay/1000).toFixed(1)}s...`);
         setTimeout(connectWithRetry, delay);
       } else {
-        console.error('🚫 Max MongoDB connection attempts reached. Please ensure MongoDB is running or your MONGODB_URI is correct.');
-        if (process.platform === 'win32') {
-          console.log('💡 Windows tip: Start service with (Admin PowerShell):  net start MongoDB');
-          console.log('    Or check status:  sc query MongoDB');
-        }
-        console.log('💡 If using Atlas, update server/.env with your connection string and whitelist your IP.');
+        console.error('Max MongoDB connection attempts reached. Please ensure MongoDB is running or your MONGODB_URI is correct.');
       }
     });
 }
 
 // Connection state listeners for better diagnostics
-mongoose.connection.on('connected', () => console.log('🟢 Mongoose connected')); 
-mongoose.connection.on('error', err => console.error('🔴 Mongoose error:', err.message));
-mongoose.connection.on('disconnected', () => console.warn('🟠 Mongoose disconnected')); 
-mongoose.connection.on('reconnected', () => console.log('🔁 Mongoose reconnected'));
+mongoose.connection.on('connected', () => console.log('Mongoose connected')); 
+mongoose.connection.on('error', err => console.error('Mongoose error:', err.message));
+mongoose.connection.on('disconnected', () => console.warn('Mongoose disconnected')); 
+mongoose.connection.on('reconnected', () => console.log('Mongoose reconnected'));
 
 connectWithRetry();
 
@@ -198,6 +192,72 @@ app.post('/api/reports', async (req, res) => {
   }
 });
 
+// POST create a lost pet report
+app.post('/api/reports/lost-pet', async (req, res) => {
+  try {
+    const {
+      petName,
+      animalType,
+      breed,
+      lastSeenLocation,
+      lastSeenDate,
+      hasReward,
+      hasDistinctiveMarks,
+      distinctiveMarks,
+      additionalInfo,
+      photos,
+      reportedBy,
+    } = req.body;
+
+    // Validation
+    if (!petName || !animalType || !lastSeenLocation || !lastSeenDate) {
+      return res.status(400).json({
+        success: false,
+        message: 'Missing required fields: petName, animalType, lastSeenLocation, lastSeenDate',
+      });
+    }
+
+    if (!photos || photos.length < 2) {
+      return res.status(400).json({
+        success: false,
+        message: 'At least two photos are required',
+      });
+    }
+
+    // Create new lost pet report
+    const newReport = new AnimalReport({
+      petName,
+      animalType,
+      breed,
+      lastSeenLocation,
+      lastSeenDate: new Date(lastSeenDate),
+      hasReward,
+      hasDistinctiveMarks,
+      distinctiveMarks,
+      additionalInfo,
+      photos,
+      reportType: 'lost-from-home',
+      reportedBy: reportedBy || 'anonymous',
+      timestamp: new Date(),
+    });
+
+    const savedReport = await newReport.save();
+
+    res.status(201).json({
+      success: true,
+      message: 'Lost pet report created successfully',
+      data: savedReport,
+    });
+  } catch (error) {
+    console.error('Error creating lost pet report:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error creating lost pet report',
+      error: error.message,
+    });
+  }
+});
+
 // GET a single report by ID
 app.get('/api/reports/:id', async (req, res) => {
   try {
@@ -270,8 +330,8 @@ function toRad(degrees) {
 
 // Start server
 app.listen(PORT, () => {
-  console.log(`🚀 Server is running on http://localhost:${PORT}`);
-  console.log(`📍 API endpoints available at http://localhost:${PORT}/api`);
+  console.log(`Server is running on http://localhost:${PORT}`);
+  console.log(`API endpoints available at http://localhost:${PORT}/api`);
 });
 
 module.exports = app;
