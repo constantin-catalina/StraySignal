@@ -258,19 +258,6 @@ export default function CaseDetail() {
                 </View>
               )}
 
-              {/* Contact */}
-              <View style={styles.detailRow}>
-                <Text style={styles.detailLabel}>CONTACT:</Text>
-                <View style={styles.contactButtons}>
-                  <TouchableOpacity style={styles.contactButton}>
-                    <Text style={styles.contactButtonText}>CHAT with owner</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity style={styles.contactButton}>
-                    <Text style={styles.contactButtonText}>CALL owner</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-
               {/* Photo Gallery */}
               <Text style={styles.detailLabel}>PHOTO GALLERY</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.photoGallery}>

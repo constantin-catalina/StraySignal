@@ -50,6 +50,9 @@ export default function Signal() {
   // Lost pet detail modal state (for existing blue markers)
   const [showLostModal, setShowLostModal] = useState(false);
   const [selectedLostMarker, setSelectedLostMarker] = useState<AnimalMarker | null>(null);
+  // Spotted detail modal state (for existing green markers)
+  const [showSpottedModal, setShowSpottedModal] = useState(false);
+  const [selectedSpottedMarker, setSelectedSpottedMarker] = useState<AnimalMarker | null>(null);
   
   // Form state
   const [selectedTime, setSelectedTime] = useState('NOW');
@@ -121,7 +124,7 @@ export default function Signal() {
                   hasDistinctiveMarks: report.hasDistinctiveMarks,
                   distinctiveMarks: report.distinctiveMarks,
                   createdAt: report.createdAt,
-                  timestamp: report.timestamp,
+                  timestamp: report.timestamp || report.createdAt,
                 },
               }));
             setMarkers(loadedMarkers);
@@ -333,6 +336,9 @@ export default function Signal() {
               if (marker.details?.reportType === 'lost-from-home') {
                 setSelectedLostMarker(marker);
                 setShowLostModal(true);
+              } else if (marker.details?.reportType === 'spotted-on-streets') {
+                setSelectedSpottedMarker(marker);
+                setShowSpottedModal(true);
               }
             }}
           />
@@ -531,6 +537,19 @@ export default function Signal() {
         }}
         marker={selectedLostMarker}
       />
+      <SpottedDetailModal
+        visible={showSpottedModal}
+        onClose={() => {
+          setShowSpottedModal(false);
+          setSelectedSpottedMarker(null);
+        }}
+        marker={selectedSpottedMarker}
+        onDeleted={(id) => {
+          setMarkers((prev) => prev.filter((m) => m.id !== id));
+          setShowSpottedModal(false);
+          setSelectedSpottedMarker(null);
+        }}
+      />
     </View>
   );
 }
@@ -667,6 +686,125 @@ const LostPetDetailModal: React.FC<LostPetDetailModalProps> = ({ visible, onClos
   );
 };
 
+interface SpottedDetailModalProps {
+  visible: boolean;
+  onClose: () => void;
+  marker: AnimalMarker | null;
+  onDeleted?: (id: string) => void;
+}
+
+const SpottedDetailModal: React.FC<SpottedDetailModalProps> = ({ visible, onClose, marker, onDeleted }) => {
+  const spotted = marker?.details;
+  const [resolvedAddress, setResolvedAddress] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const fetchAddress = async () => {
+      if (visible && marker?.coordinate) {
+        try {
+          setResolvedAddress(null);
+          const results = await Location.reverseGeocodeAsync(marker.coordinate);
+            if (!cancelled && results.length > 0) {
+              const r = results[0];
+              // Build address parts, prioritizing street and city, skipping name if it's just a number
+              const parts = [];
+              if (r.street) parts.push(r.street);
+              if (r.city) parts.push(r.city);
+              // Only add name if it's not purely numeric
+              if (r.name && !/^\d+$/.test(r.name.trim())) {
+                parts.unshift(r.name);
+              }
+              const formatted = parts.filter(Boolean).join(', ');
+              if (formatted) setResolvedAddress(formatted);
+            }
+        } catch {
+          // silent fail, we'll fallback to coordinates
+        }
+      }
+    };
+    fetchAddress();
+    return () => { cancelled = true; };
+  }, [visible, marker]);
+  if (!visible) return null;
+  return (
+    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
+      <View style={styles.modalOverlay}>
+        <View style={styles.modalContent}>
+          <View style={styles.modalBadgeContainer} pointerEvents="none">
+            <View style={[styles.modalBadgeCircle, { borderColor: '#1E1F24' }] }>
+              <Image source={require('../../assets/icons/attention_gray.png')} style={[styles.modalBadgeIcon, { tintColor: '#81ADC8' }]} />
+            </View>
+          </View>
+          <View style={styles.modalHeader}>
+            <TouchableOpacity onPress={onClose} style={styles.backButton}>
+              <Ionicons name="chevron-back" size={24} color="#fff" />
+            </TouchableOpacity>
+            <View style={{ flex: 1 }} />
+            <Text style={styles.seenBadgeSpotted}>SEEN: {getTimeAgo(spotted?.createdAt || spotted?.timestamp)}</Text>
+          </View>
+          <ScrollView style={styles.detailsContainer} showsVerticalScrollIndicator={false}>
+            {/* Action buttons row (CHECK placeholder + SEEN badge already above) */}
+            <View style={styles.detailRow}>
+              <Text style={styles.detailLabel}>LOCATION:</Text>
+              <Text style={styles.detailValue}>{
+                resolvedAddress || (marker?.coordinate ? `${marker.coordinate.latitude.toFixed(5)}, ${marker.coordinate.longitude.toFixed(5)}` : 'N/A')
+              }</Text>
+            </View>
+            <View style={styles.detailRow}>
+              <Text style={styles.detailLabel}>INJURED:</Text>
+              <Text style={styles.detailValue}>{spotted?.injured ? 'YES' : 'NO'}</Text>
+            </View>
+            {spotted?.additionalInfo ? (
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>DESCRIPTION:</Text>
+                <Text style={styles.detailValue}>{spotted.additionalInfo}</Text>
+              </View>
+            ) : null}
+            {spotted?.direction ? (
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>DIRECTION:</Text>
+                <Text style={styles.detailValue}>{spotted.direction}</Text>
+              </View>
+            ) : null}
+            <Text style={styles.detailLabel}>PHOTO GALLERY</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.photoGallery}>
+              {spotted?.photos && spotted.photos.length > 0 ? (
+                spotted.photos.map((uri, index) => (
+                  <Image key={index} source={{ uri }} style={styles.galleryPhoto} />
+                ))
+              ) : (
+                <Text style={[styles.detailValue, { marginTop: 8 }]}>No photos available</Text>
+              )}
+            </ScrollView>
+            {marker?.id && onDeleted && (
+              <TouchableOpacity
+                style={styles.deleteButton}
+                onPress={async () => {
+                  try {
+                    const res = await fetch(`${API_ENDPOINTS.REPORTS}/${marker.id}`, { method: 'DELETE' });
+                    if (res.ok) {
+                      onDeleted(marker.id);
+                    } else {
+                      Alert.alert('Delete Failed', 'Could not delete report.');
+                    }
+                  } catch {
+                    Alert.alert('Error', 'Network error deleting report.');
+                  }
+                }}
+              >
+                <Ionicons name="trash" size={20} color="#fff" />
+                <Text style={styles.deleteButtonText}>Delete report</Text>
+              </TouchableOpacity>
+            )}
+            {/* Extra bottom padding for delete button visibility */}
+            <View style={{ height: 20 }} />
+          </ScrollView>
+        </View>
+      </View>
+    </Modal>
+  );
+};
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -793,8 +931,34 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     marginRight: 12,
   },
+  deleteButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#b82b24ff',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    justifyContent: 'center',
+    marginBottom: 12,
+  },
+  deleteButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
+    marginLeft: 8,
+  },
   seenBadge: {
     backgroundColor: '#CDC1FF',
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    borderRadius: 16,
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#fff',
+  },
+  seenBadgeSpotted: {
+    backgroundColor: '#81ADC8',
     paddingHorizontal: 16,
     paddingVertical: 6,
     borderRadius: 16,
