@@ -2,9 +2,11 @@ import TopBarSecondary from '@/components/TopBarSecondary';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import * as ImagePicker from 'expo-image-picker';
+import * as Location from 'expo-location';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { Alert, Image, ImageBackground, Platform, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, Image, ImageBackground, Modal, Platform, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 
 export default function ReportLostPet() {
   const router = useRouter();
@@ -21,6 +23,80 @@ export default function ReportLostPet() {
   const [distinctiveMarks, setDistinctiveMarks] = useState('');
   const [additionalInfo, setAdditionalInfo] = useState('');
   const [photos, setPhotos] = useState<string[]>([]);
+  
+  // Location state
+  const [latitude, setLatitude] = useState<number | null>(null);
+  const [longitude, setLongitude] = useState<number | null>(null);
+  const [showMapModal, setShowMapModal] = useState(false);
+  const [tempMarker, setTempMarker] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [mapRegion, setMapRegion] = useState({
+    latitude: 37.78825,
+    longitude: -122.4324,
+    latitudeDelta: 0.0922,
+    longitudeDelta: 0.0421,
+  });
+
+  // Get current location for map
+  const getCurrentLocation = async () => {
+    try {
+      let { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission Denied', 'Location permission is required.');
+        return;
+      }
+
+      let location = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.High,
+      });
+      
+      setMapRegion({
+        latitude: location.coords.latitude,
+        longitude: location.coords.longitude,
+        latitudeDelta: 0.0922,
+        longitudeDelta: 0.0421,
+      });
+    } catch (error) {
+      console.error('Error getting location:', error);
+    }
+  };
+
+  const openMapPicker = async () => {
+    await getCurrentLocation();
+    setShowMapModal(true);
+  };
+
+  const handleMapPress = (event: any) => {
+    const { latitude, longitude } = event.nativeEvent.coordinate;
+    setTempMarker({ latitude, longitude });
+  };
+
+  const confirmLocation = async () => {
+    if (tempMarker) {
+      setLatitude(tempMarker.latitude);
+      setLongitude(tempMarker.longitude);
+      
+      // Reverse geocode to get address
+      try {
+        const result = await Location.reverseGeocodeAsync({
+          latitude: tempMarker.latitude,
+          longitude: tempMarker.longitude,
+        });
+        
+        if (result.length > 0) {
+          const address = result[0];
+          const parts = [address.street, address.city, address.region].filter(Boolean);
+          const locationString = parts.join(', ');
+          setLastSeenLocation(locationString || `${tempMarker.latitude.toFixed(4)}, ${tempMarker.longitude.toFixed(4)}`);
+        }
+      } catch (error) {
+        console.error('Error reverse geocoding:', error);
+        setLastSeenLocation(`${tempMarker.latitude.toFixed(4)}, ${tempMarker.longitude.toFixed(4)}`);
+      }
+      
+      setShowMapModal(false);
+      setTempMarker(null);
+    }
+  };
 
   const pickImage = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -115,6 +191,8 @@ export default function ReportLostPet() {
         animalType,
         breed,
         lastSeenLocation,
+        latitude,
+        longitude,
         lastSeenDate: lastSeenDate?.toISOString(),
         hasReward,
         hasDistinctiveMarks,
@@ -165,6 +243,7 @@ export default function ReportLostPet() {
   };
 
   return (
+    <>
     <View style={styles.root}>
       <StatusBar
         barStyle={Platform.OS === 'ios' ? 'dark-content' : 'dark-content'}
@@ -219,13 +298,21 @@ export default function ReportLostPet() {
 
             {/* Last Seen Location */}
             <Text style={styles.questionText}>Where was your pet last seen?</Text>
-            <TextInput
-              style={styles.textInput}
-              placeholder="Enter text..."
-              placeholderTextColor="#999"
-              value={lastSeenLocation}
-              onChangeText={setLastSeenLocation}
-            />
+            <View style={styles.locationInputContainer}>
+              <TextInput
+                style={[styles.textInput, styles.locationTextInput]}
+                placeholder="Enter location or pick from map..."
+                placeholderTextColor="#999"
+                value={lastSeenLocation}
+                onChangeText={setLastSeenLocation}
+              />
+              <TouchableOpacity
+                style={styles.mapPickerButton}
+                onPress={openMapPicker}
+              >
+                <Ionicons name="location" size={24} color="#FFFFFF" />
+              </TouchableOpacity>
+            </View>
 
             {/* Last Seen Date */}
             <Text style={styles.questionText}>When was your pet last seen?</Text>
@@ -233,7 +320,7 @@ export default function ReportLostPet() {
               style={styles.datePickerButton}
               onPress={() => setShowDatePicker(true)}
             >
-              <Text style={styles.datePickerText}>
+              <Text style={[styles.datePickerText, !lastSeenDate && styles.datePickerPlaceholderText]}>
                 {lastSeenDate ? lastSeenDate.toLocaleDateString() : 'Select date...'}
               </Text>
               <Ionicons name="calendar-outline" size={24} color="#23395B" />
@@ -363,6 +450,47 @@ export default function ReportLostPet() {
         </ScrollView>
       </ImageBackground>
     </View>
+    {/* Map Picker Modal */}
+    <Modal
+      visible={showMapModal}
+      animationType="slide"
+      transparent={true}
+      onRequestClose={() => setShowMapModal(false)}
+    >
+      <View style={styles.mapModalOverlay}>
+        <View style={styles.mapModalContent}>
+          <Text style={styles.mapModalTitle}>Pick Last Seen Location</Text>
+          <MapView
+            style={styles.mapPicker}
+            provider={PROVIDER_GOOGLE}
+            region={mapRegion}
+            showsUserLocation
+            onPress={handleMapPress}
+          >
+            {tempMarker ? (
+              <Marker coordinate={{ latitude: tempMarker.latitude, longitude: tempMarker.longitude }} pinColor="#23395B" />
+            ) : null}
+          </MapView>
+          <View style={styles.mapModalButtons}>
+            <TouchableOpacity
+              style={[styles.mapActionButton, styles.mapCancelButton]}
+              onPress={() => { setShowMapModal(false); setTempMarker(null); }}
+            >
+              <Text style={styles.mapActionText}>Cancel</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.mapActionButton, !tempMarker && styles.mapActionButtonDisabled]}
+              disabled={!tempMarker}
+              onPress={confirmLocation}
+            >
+              <Text style={styles.mapActionText}>Confirm</Text>
+            </TouchableOpacity>
+          </View>
+          <Text style={styles.mapHelperText}>Tap on the map to place a marker.</Text>
+        </View>
+      </View>
+    </Modal>
+    </>
   );
 }
 
@@ -421,6 +549,24 @@ const styles = StyleSheet.create({
   datePickerText: {
     fontSize: 15,
     color: '#333',
+  },
+  datePickerPlaceholderText: {
+    color: '#999',
+  },
+  locationInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  locationTextInput: {
+    flex: 1,
+  },
+  mapPickerButton: {
+    backgroundColor: '#23395B',
+    borderRadius: 12,
+    padding: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   buttonRow: {
     flexDirection: 'row',
@@ -500,6 +646,62 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     letterSpacing: 1,
+  },
+  // Map Modal Styles
+  mapModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    justifyContent: 'center',
+    padding: 20,
+  },
+  mapModalContent: {
+    backgroundColor: '#1E1F24',
+    borderRadius: 20,
+    overflow: 'hidden',
+    paddingBottom: 16,
+  },
+  mapModalTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#D9D9D9',
+    padding: 16,
+    textAlign: 'center',
+  },
+  mapPicker: {
+    height: 300,
+    width: '100%',
+  },
+  mapModalButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    marginTop: 12,
+  },
+  mapActionButton: {
+    flex: 1,
+    backgroundColor: '#23395B',
+    paddingVertical: 12,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginHorizontal: 4,
+  },
+  mapCancelButton: {
+    backgroundColor: '#444',
+  },
+  mapActionButtonDisabled: {
+    opacity: 0.5,
+  },
+  mapActionText: {
+    color: '#FFFFFF',
+    fontWeight: '600',
+    letterSpacing: 0.5,
+  },
+  mapHelperText: {
+    fontSize: 12,
+    color: '#999',
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    textAlign: 'center',
   },
 });
 

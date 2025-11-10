@@ -1,6 +1,8 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import React from 'react';
-import { Image, Platform, StatusBar, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { useRouter } from 'expo-router';
+import React, { useState } from 'react';
+import { Image, Modal, Platform, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { setSignedIn } from '../app/lib/auth';
 
 type Props = {
   title?: string;
@@ -9,11 +11,19 @@ type Props = {
 };
 
 export default function TopBar({ title = 'StraySignal', onBack, showRightDots = true }: Props) {
+  const router = useRouter();
+  const [showMenu, setShowMenu] = useState(false);
   const logo = require('../assets/logos/blue-logo.png');
 
   const topPadding = Platform.OS === 'android' ? StatusBar.currentHeight ?? 0 : 44;
   const baseHeight = 56;
   const barHeight = baseHeight + topPadding;
+
+  const handleLogout = async () => {
+    setShowMenu(false);
+    await setSignedIn(false);
+    router.replace('/auth/sign-in');
+  };
 
   return (
     <View style={[styles.container, { paddingTop: topPadding, height: barHeight }]}>
@@ -26,9 +36,33 @@ export default function TopBar({ title = 'StraySignal', onBack, showRightDots = 
       </View>
 
       {showRightDots ? (
-        <TouchableOpacity style={styles.sideButton} accessibilityRole="button">
-          <Ionicons name="ellipsis-horizontal" size={18} color={styles.title.color as string} />
-        </TouchableOpacity>
+        <View>
+          <TouchableOpacity onPress={() => setShowMenu(!showMenu)} style={styles.sideButton} accessibilityRole="button">
+            <Ionicons name="ellipsis-horizontal" size={18} color={styles.title.color as string} />
+          </TouchableOpacity>
+          
+          {showMenu && (
+            <Modal
+              transparent
+              visible={showMenu}
+              onRequestClose={() => setShowMenu(false)}
+              animationType="fade"
+            >
+              <TouchableOpacity 
+                style={styles.menuOverlay} 
+                activeOpacity={1} 
+                onPress={() => setShowMenu(false)}
+              >
+                <View style={styles.menuContainer}>
+                  <TouchableOpacity onPress={handleLogout} style={styles.menuItem}>
+                    <Ionicons name="log-out-outline" size={20} color="#fff" />
+                    <Text style={styles.menuText}>Log Out</Text>
+                  </TouchableOpacity>
+                </View>
+              </TouchableOpacity>
+            </Modal>
+          )}
+        </View>
       ) : (
         <View style={styles.sideButton} />
       )}
@@ -65,5 +99,35 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#9AD0DA',
     fontWeight: '600',
+  },
+  menuOverlay: {
+    flex: 1,
+    backgroundColor: 'transparent',
+    justifyContent: 'flex-start',
+    alignItems: 'flex-end',
+    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight ?? 0) + 56 : 100,
+    paddingRight: 12,
+  },
+  menuContainer: {
+    backgroundColor: '#2C2C2E',
+    borderRadius: 8,
+    minWidth: 150,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  menuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    gap: 12,
+  },
+  menuText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '500',
   },
 });

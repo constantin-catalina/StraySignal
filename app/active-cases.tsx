@@ -11,6 +11,8 @@ interface LostPetCase {
   breed?: string;
   lastSeenDate: string;
   lastSeenLocation: string;
+  latitude?: number;
+  longitude?: number;
   photos: string[];
   hasReward?: boolean;
   hasDistinctiveMarks?: boolean;
@@ -100,15 +102,13 @@ export default function ActiveCases() {
   };
 
   const handleViewDetails = (caseItem: LostPetCase) => {
-    // TODO: Navigate to case details page
-    Alert.alert(
-      caseItem.petName,
-      `Type: ${caseItem.animalType}\n` +
-      `Breed: ${caseItem.breed || 'N/A'}\n` +
-      `Last Seen: ${caseItem.lastSeenLocation}\n` +
-      `Date: ${formatDate(caseItem.lastSeenDate)}\n\n` +
-      `${caseItem.additionalInfo || 'No additional information'}`
-    );
+    // Navigate to case detail page with case data
+    router.push({
+      pathname: '/case-detail',
+      params: {
+        caseData: JSON.stringify(caseItem),
+      },
+    });
   };
 
   return (
