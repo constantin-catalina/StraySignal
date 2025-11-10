@@ -7,6 +7,10 @@ export default {
     scheme: 'straysignal',
     extra: {
       clerkPublishableKey: process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY,
+      // Public API URL for the mobile app to talk to your backend
+      // Example (Atlas-backed server deployed): https://straysignal.onrender.com/api
+      // Example (local dev): http://localhost:3000/api
+      apiUrl: process.env.EXPO_PUBLIC_API_URL,
     },
     plugins: [
       [

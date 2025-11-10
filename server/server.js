@@ -11,9 +11,16 @@ app.use(cors()); // Enable CORS for all routes
 app.use(express.json({ limit: '50mb' })); // Parse JSON bodies (increased limit for base64 images)
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
-// MongoDB Connection
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/straysignal';
-const MONGODB_DB_NAME = process.env.MONGODB_DB_NAME; // optional, useful for Atlas when URI doesn't include /dbname
+// MongoDB Connection (Atlas or local)
+const MONGODB_URI = process.env.MONGODB_URI;
+const MONGODB_DB_NAME = process.env.MONGODB_DB_NAME; // optional if URI does not include a db name
+
+if (!MONGODB_URI) {
+  console.error('\nMissing MONGODB_URI environment variable.');
+  console.error('   Add it to server/.env or your deployment environment.');
+  console.error('   Example Atlas URI: mongodb+srv://<user>:<pass>@<cluster>.mongodb.net/StraySignal?retryWrites=true&w=majority');
+  process.exit(1);
+}
 
 /**
  * Establish a MongoDB connection with retry logic.
@@ -22,16 +29,19 @@ const MONGODB_DB_NAME = process.env.MONGODB_DB_NAME; // optional, useful for Atl
 const MAX_RETRIES = 5;
 let attempt = 0;
 
+function sanitize(uri) {
+  // Hide credentials for logging
+  return uri.replace(/:\w+@/, ':****@');
+}
+
 function connectWithRetry() {
   attempt++;
-  console.log(`Attempting MongoDB connection...`);
+  console.log(`[DB] Attempt ${attempt}/${MAX_RETRIES} connecting to ${sanitize(MONGODB_URI)}${MONGODB_DB_NAME ? ' (dbName override: ' + MONGODB_DB_NAME + ')' : ''}`);
   const options = {};
-  if (MONGODB_DB_NAME) {
-    options.dbName = MONGODB_DB_NAME;
-  }
+  if (MONGODB_DB_NAME) options.dbName = MONGODB_DB_NAME;
   mongoose.connect(MONGODB_URI, options)
     .then(() => {
-      console.log('Connected to MongoDB');
+      console.log('MongoDB connection established');
     })
     .catch(err => {
       console.error('MongoDB connection error:', err.message);
@@ -40,7 +50,7 @@ function connectWithRetry() {
         console.log(`Retrying in ${(delay/1000).toFixed(1)}s...`);
         setTimeout(connectWithRetry, delay);
       } else {
-        console.error('Max MongoDB connection attempts reached. Please ensure MongoDB is running or your MONGODB_URI is correct.');
+        console.error('Max retries reached. Verify network access / IP whitelist (Atlas) and credentials.');
       }
     });
 }
@@ -56,7 +66,7 @@ connectWithRetry();
 // Helpful warning if localhost fails quickly (often service not started)
 setTimeout(() => {
   if (mongoose.connection.readyState !== 1) {
-    console.log('⚠ Still not connected. Verify MongoDB service is running.');
+  console.log('Still not connected. Verify MongoDB service is running.');
     if (process.platform === 'win32') {
       console.log('   Run as Admin:  net start MongoDB  (service name may be MongoDB or MongoDBServer)');
     }
@@ -65,6 +75,7 @@ setTimeout(() => {
 
 // Import models
 const AnimalReport = require('./models/AnimalReport');
+const User = require('./models/User');
 
 // Routes
 
@@ -72,6 +83,133 @@ const AnimalReport = require('./models/AnimalReport');
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', message: 'Server is running' });
 });
+
+// ============ USER PROFILE ENDPOINTS ============
+
+// GET user profile by Clerk ID
+app.get('/api/users/:clerkId', async (req, res) => {
+  try {
+    const { clerkId } = req.params;
+    const user = await User.findOne({ clerkId });
+    
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found',
+      });
+    }
+
+    res.json({
+      success: true,
+      data: user,
+    });
+  } catch (error) {
+    console.error('Error fetching user:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching user',
+      error: error.message,
+    });
+  }
+});
+
+// POST create or update user profile
+app.post('/api/users', async (req, res) => {
+  try {
+    const {
+      clerkId,
+      name,
+      email,
+      phone,
+      location,
+      profileImage,
+      showPhoneNumber,
+      radiusPreference,
+    } = req.body;
+
+    if (!clerkId || !name || !email) {
+      return res.status(400).json({
+        success: false,
+        message: 'clerkId, name, and email are required',
+      });
+    }
+
+    // Find existing user or create new one
+    let user = await User.findOne({ clerkId });
+
+    if (user) {
+      // Update existing user
+      user.name = name;
+      user.email = email;
+      user.phone = phone || user.phone;
+      user.location = location || user.location;
+      user.profileImage = profileImage || user.profileImage;
+      user.showPhoneNumber = showPhoneNumber !== undefined ? showPhoneNumber : user.showPhoneNumber;
+      user.radiusPreference = radiusPreference || user.radiusPreference;
+      await user.save();
+    } else {
+      // Create new user
+      user = new User({
+        clerkId,
+        name,
+        email,
+        phone: phone || '',
+        location: location || '',
+        profileImage: profileImage || '',
+        showPhoneNumber: showPhoneNumber || false,
+        radiusPreference: radiusPreference || 2,
+      });
+      await user.save();
+    }
+
+    res.status(201).json({
+      success: true,
+      data: user,
+    });
+  } catch (error) {
+    console.error('Error saving user:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error saving user',
+      error: error.message,
+    });
+  }
+});
+
+// PUT update user profile
+app.put('/api/users/:clerkId', async (req, res) => {
+  try {
+    const { clerkId } = req.params;
+    const updates = req.body;
+
+    const user = await User.findOneAndUpdate(
+      { clerkId },
+      { ...updates, updatedAt: Date.now() },
+      { new: true, runValidators: true }
+    );
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found',
+      });
+    }
+
+    res.json({
+      success: true,
+      data: user,
+    });
+  } catch (error) {
+    console.error('Error updating user:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error updating user',
+      error: error.message,
+    });
+  }
+});
+
+// ============ ANIMAL REPORT ENDPOINTS ============
 
 // GET all animal reports
 app.get('/api/reports', async (req, res) => {
@@ -333,9 +471,17 @@ function toRad(degrees) {
 }
 
 // Start server
-app.listen(PORT, () => {
-  console.log(`Server is running on http://localhost:${PORT}`);
-  console.log(`API endpoints available at http://localhost:${PORT}/api`);
+// Listen on 0.0.0.0 to accept connections from all network interfaces (container / host / cloud dyno)
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`Server listening on port ${PORT}`);
+});
+
+// Global error safety nets
+process.on('unhandledRejection', (reason) => {
+  console.error('Unhandled Rejection:', reason);
+});
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught Exception:', err);
 });
 
 module.exports = app;

@@ -1,4 +1,5 @@
 import TopBarSecondary from '@/components/TopBarSecondary';
+import { API_ENDPOINTS } from '@/constants/api';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import React, { useCallback, useState } from 'react';
@@ -29,8 +30,7 @@ export default function ActiveCases() {
   const fetchActiveCases = async () => {
     setLoading(true);
     try {
-      const API_URL = 'http://192.168.0.115:3000/api/reports';
-      const response = await fetch(API_URL);
+      const response = await fetch(API_ENDPOINTS.REPORTS);
       const result = await response.json();
 
       if (result.success) {
@@ -78,8 +78,7 @@ export default function ActiveCases() {
           text: 'Yes, Found!',
           onPress: async () => {
             try {
-              const API_URL = `http://192.168.0.115:3000/api/reports/${caseId}`;
-              const response = await fetch(API_URL, {
+              const response = await fetch(`${API_ENDPOINTS.REPORTS}/${caseId}`, {
                 method: 'DELETE',
               });
 

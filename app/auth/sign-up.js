@@ -162,7 +162,7 @@ const styles = StyleSheet.create({
 
   cta: { height: 56, borderRadius: 28, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, marginBottom: 12 },
   ctaPrimary: { backgroundColor: NAVY },
-  ctaOutline: { backgroundColor: LIGHT, borderWidth: 1, borderColor: '#E8EEF6' },
+  ctaOutline: { backgroundColor: LIGHT, borderWidth: 1, borderColor: '#D9D9D9' },
   ctaText: { flex: 1, textAlign: 'center', fontWeight: '700', letterSpacing: 0.4, color: NAVY },
   ctaTextPrimary: { color: LIGHT },
   leftIcon: { position: 'absolute', left: 20, width: 24, height: 24 },

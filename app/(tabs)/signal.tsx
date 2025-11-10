@@ -1,4 +1,5 @@
 import TopBar from '@/components/TopBar';
+import { API_ENDPOINTS } from '@/constants/api';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
@@ -75,10 +76,9 @@ export default function Signal() {
         Alert.alert('Error', 'Could not fetch your location.');
       }
 
-      // Fetch existing reports from database
+      // Fetch existing reports from database (Atlas-backed server)
       try {
-        const API_URL = 'http://192.168.0.115:3000/api/reports';
-        const response = await fetch(API_URL);
+        const response = await fetch(API_ENDPOINTS.REPORTS);
         
         if (response.ok) {
           const data = await response.json();
@@ -211,11 +211,7 @@ export default function Signal() {
     };
 
     try {
-      // API endpoint for local development (using your machine IP from ipconfig)
-      const API_URL = 'http://192.168.0.115:3000/api/reports';
-      // If this IP changes, update it to match your current Wi‑Fi IPv4 address
-      
-      const response = await fetch(API_URL, {
+      const response = await fetch(API_ENDPOINTS.REPORTS, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

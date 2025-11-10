@@ -1,4 +1,5 @@
 import TopBarSecondary from '@/components/TopBarSecondary';
+import { API_ENDPOINTS } from '@/constants/api';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import * as ImagePicker from 'expo-image-picker';
@@ -201,12 +202,10 @@ export default function ReportLostPet() {
         photos: processedPhotos,
       };
 
-      const API_URL = 'http://192.168.0.115:3000/api/reports/lost-pet';
-      
-      console.log('Submitting to:', API_URL);
+  console.log('Submitting to:', API_ENDPOINTS.REPORTS_LOST_PET);
       console.log('Report data:', { ...reportData, photos: `[${reportData.photos.length} photos]` });
       
-      const response = await fetch(API_URL, {
+      const response = await fetch(API_ENDPOINTS.REPORTS_LOST_PET, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -238,7 +237,7 @@ export default function ReportLostPet() {
     } catch (error) {
       console.error('Error submitting report:', error);
       const errorMessage = error instanceof Error ? error.message : 'Failed to submit report. Please try again.';
-      Alert.alert('Error', errorMessage + '\n\nMake sure the server is running at http://192.168.0.115:3000');
+  Alert.alert('Error', errorMessage + '\n\nCheck server or network connectivity.');
     }
   };
 
