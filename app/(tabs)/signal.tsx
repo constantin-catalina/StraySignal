@@ -22,6 +22,16 @@ interface AnimalMarker {
     photos: string[];
     additionalInfo: string;
     reportType: 'lost-from-home' | 'spotted-on-streets';
+    // Lost pet specific optional fields populated when reportType === 'lost-from-home'
+    petName?: string;
+    breed?: string;
+    lastSeenLocation?: string;
+    lastSeenDate?: string; // ISO string for consistency on client
+    hasReward?: boolean;
+    hasDistinctiveMarks?: boolean;
+    distinctiveMarks?: string;
+    createdAt?: string;
+    timestamp?: string;
   };
 }
 
@@ -37,6 +47,9 @@ export default function Signal() {
   const [isReportMode, setIsReportMode] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [currentMarker, setCurrentMarker] = useState<{ latitude: number; longitude: number } | null>(null);
+  // Lost pet detail modal state (for existing blue markers)
+  const [showLostModal, setShowLostModal] = useState(false);
+  const [selectedLostMarker, setSelectedLostMarker] = useState<AnimalMarker | null>(null);
   
   // Form state
   const [selectedTime, setSelectedTime] = useState('NOW');
@@ -99,6 +112,16 @@ export default function Signal() {
                   photos: report.photos || [],
                   additionalInfo: report.additionalInfo ?? '',
                   reportType: (report.reportType as 'lost-from-home' | 'spotted-on-streets') || 'spotted-on-streets',
+                  // Lost pet case fields
+                  petName: report.petName,
+                  breed: report.breed,
+                  lastSeenLocation: report.lastSeenLocation,
+                  lastSeenDate: report.lastSeenDate,
+                  hasReward: report.hasReward,
+                  hasDistinctiveMarks: report.hasDistinctiveMarks,
+                  distinctiveMarks: report.distinctiveMarks,
+                  createdAt: report.createdAt,
+                  timestamp: report.timestamp,
                 },
               }));
             setMarkers(loadedMarkers);
@@ -306,6 +329,12 @@ export default function Signal() {
             key={marker.id}
             coordinate={marker.coordinate}
             pinColor={marker.details?.reportType === 'lost-from-home' ? '#23395B' : '#668586'}
+            onPress={() => {
+              if (marker.details?.reportType === 'lost-from-home') {
+                setSelectedLostMarker(marker);
+                setShowLostModal(true);
+              }
+            }}
           />
         ))}
         
@@ -353,6 +382,7 @@ export default function Signal() {
       </TouchableOpacity>
 
       {/* Report Details Modal */}
+      {/* Spotted/Lost sighting creation modal */}
       <Modal
         visible={showModal}
         animationType="slide"
@@ -492,9 +522,150 @@ export default function Signal() {
           </View>
         </View>
       </Modal>
+      {/* Lost pet detail modal (blue marker press) */}
+      <LostPetDetailModal
+        visible={showLostModal}
+        onClose={() => {
+          setShowLostModal(false);
+          setSelectedLostMarker(null);
+        }}
+        marker={selectedLostMarker}
+      />
     </View>
   );
 }
+
+// Reuse formatting utilities from case-detail (could be extracted later)
+const formatDate = (dateString: string) => {
+  if (!dateString) return 'N/A';
+  const date = new Date(dateString);
+  if (isNaN(date.getTime())) return 'N/A';
+  const months = ['January', 'February', 'March', 'April', 'May', 'June', 
+    'July', 'August', 'September', 'October', 'November', 'December'];
+  const day = date.getDate();
+  const suffix = day === 1 || day === 21 || day === 31 ? 'st' 
+    : day === 2 || day === 22 ? 'nd'
+    : day === 3 || day === 23 ? 'rd' : 'th';
+  return `${months[date.getMonth()]} ${day}${suffix} ${date.getFullYear()}`;
+};
+
+const getTimeAgo = (dateString?: string) => {
+  if (!dateString) return 'N/A';
+  const date = new Date(dateString);
+  if (isNaN(date.getTime())) return 'N/A';
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMins / 60);
+  const diffDays = Math.floor(diffHours / 24);
+  if (diffMins < 60) return `${diffMins}min ago`;
+  if (diffHours < 24) return `${diffHours}h ago`;
+  return `${diffDays}d ago`;
+};
+
+interface LostPetDetailModalProps {
+  visible: boolean;
+  onClose: () => void;
+  marker: AnimalMarker | null;
+}
+
+const LostPetDetailModal: React.FC<LostPetDetailModalProps> = ({ visible, onClose, marker }) => {
+  const lost = marker?.details;
+  // Only render when the marker is for a lost pet; otherwise, this modal won't be shown
+  if (!visible) return null;
+  return (
+    <Modal
+      visible={visible}
+      animationType="slide"
+      transparent
+      onRequestClose={onClose}
+    >
+      <View style={styles.modalOverlay}>
+        <View style={styles.modalContent}>
+          {/* Purple badge */}
+          <View style={styles.modalBadgeContainer} pointerEvents="none">
+            <View style={[styles.modalBadgeCircle, { borderColor: '#1E1F24' }] }>
+              <Image source={require('../../assets/icons/attention_gray.png')} style={[styles.modalBadgeIcon, { tintColor: '#CDC1FF' }]} />
+            </View>
+          </View>
+          <View style={styles.modalHeader}>
+            <TouchableOpacity onPress={onClose} style={styles.backButton}>
+              <Ionicons name="chevron-back" size={24} color="#fff" />
+            </TouchableOpacity>
+            <View style={{ flex: 1 }} />
+            <Text style={styles.seenBadge}>SEEN: {getTimeAgo(lost?.createdAt || lost?.timestamp)}</Text>
+          </View>
+          <ScrollView style={styles.detailsContainer} showsVerticalScrollIndicator={false}>
+            {/* NAME */}
+            <View style={styles.detailRow}>
+              <Text style={styles.detailLabel}>NAME:</Text>
+              <Text style={styles.detailValue}>{lost?.petName || 'N/A'}</Text>
+            </View>
+            {/* LOST LOCATION */}
+            <View style={styles.detailRow}>
+              <Text style={styles.detailLabel}>LOST LOCATION:</Text>
+              <Text style={styles.detailValue}>{lost?.lastSeenLocation || 'N/A'}</Text>
+            </View>
+            {/* DATE */}
+            <View style={styles.detailRow}>
+              <Text style={styles.detailLabel}>DATE:</Text>
+              <Text style={styles.detailValue}>{lost?.lastSeenDate ? formatDate(lost.lastSeenDate) : 'N/A'}</Text>
+            </View>
+            {/* BREED */}
+            <View style={styles.detailRow}>
+              <Text style={styles.detailLabel}>BREED:</Text>
+              <Text style={styles.detailValue}>{lost?.breed && lost?.animalType ? `${lost.breed} ${lost.animalType}` : lost?.breed || lost?.animalType || 'N/A'}</Text>
+            </View>
+            {/* DISTINCTIVE MARKS */}
+            {lost?.hasDistinctiveMarks && lost?.distinctiveMarks ? (
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>DISTINCTIVE MARKS:</Text>
+                <Text style={styles.detailValue}>{lost.distinctiveMarks}</Text>
+              </View>
+            ) : null}
+            {/* REWARD */}
+            {lost?.hasReward ? (
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>REWARD:</Text>
+                <Text style={styles.detailValue}>100 Euros</Text>
+              </View>
+            ) : null}
+            {/* DESCRIPTION */}
+            {lost?.additionalInfo ? (
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>DESCRIPTION:</Text>
+                <Text style={styles.detailValue}>{lost.additionalInfo}</Text>
+              </View>
+            ) : null}
+            {/* CONTACT */}
+            <View style={styles.detailRow}>
+              <Text style={styles.detailLabel}>CONTACT:</Text>
+              <View style={styles.contactButtons}>
+                <TouchableOpacity style={styles.contactButton}>
+                  <Text style={styles.contactButtonText}>CHAT with owner</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.contactButton}>
+                  <Text style={styles.contactButtonText}>CALL owner</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+            {/* PHOTO GALLERY */}
+            <Text style={styles.detailLabel}>PHOTO GALLERY</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.photoGallery}>
+              {lost?.photos && lost.photos.length > 0 ? (
+                lost.photos.map((uri, index) => (
+                  <Image key={index} source={{ uri }} style={styles.galleryPhoto} />
+                ))
+              ) : (
+                <Text style={[styles.detailValue, { marginTop: 8 }]}>No photos available</Text>
+              )}
+            </ScrollView>
+          </ScrollView>
+        </View>
+      </View>
+    </Modal>
+  );
+};
 
 const styles = StyleSheet.create({
   container: {
@@ -576,6 +747,60 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
     paddingTop: 10,
     position: 'relative',
+  },
+  detailsContainer: {
+    padding: 20,
+  },
+  detailRow: {
+    marginBottom: 20,
+  },
+  detailLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#fff',
+    marginBottom: 8,
+  },
+  detailValue: {
+    fontSize: 14,
+    color: '#D9D9D9',
+    lineHeight: 20,
+  },
+  contactButtons: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 8,
+  },
+  contactButton: {
+    flex: 1,
+    backgroundColor: '#E5E5EA',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  contactButtonText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#333',
+  },
+  photoGallery: {
+    marginTop: 12,
+    marginBottom: 20,
+  },
+  galleryPhoto: {
+    width: 150,
+    height: 150,
+    borderRadius: 12,
+    marginRight: 12,
+  },
+  seenBadge: {
+    backgroundColor: '#CDC1FF',
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    borderRadius: 16,
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#fff',
   },
   modalHeader: {
     flexDirection: 'row',
@@ -713,9 +938,9 @@ const styles = StyleSheet.create({
     zIndex: 2,
   },
   modalBadgeCircle: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 66,
+    height: 66,
+    borderRadius: 33,
     backgroundColor: '#1E1F24',
     borderWidth: 3,
     borderColor: '#1E1F24',
@@ -723,8 +948,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   modalBadgeIcon: {
-    width: 45,
-    height: 45,
+    width: 54,
+    height: 54,
     resizeMode: 'contain',
     tintColor: '#5F9EA0',
   },
