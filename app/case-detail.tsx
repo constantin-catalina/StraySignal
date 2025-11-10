@@ -163,6 +163,7 @@ export default function CaseDetail() {
                 coordinate={{ latitude: parsedCase.latitude, longitude: parsedCase.longitude }}
                 title={parsedCase?.petName || 'Last seen here'}
                 description={parsedCase?.lastSeenLocation}
+                pinColor="#CDC1FF"
                 onPress={() => {
                   setShowModal(true);
                 }}

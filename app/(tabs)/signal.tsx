@@ -79,27 +79,28 @@ export default function Signal() {
       // Fetch existing reports from database (Atlas-backed server)
       try {
         const response = await fetch(API_ENDPOINTS.REPORTS);
-        
         if (response.ok) {
           const data = await response.json();
           if (data.success && data.data) {
-            // Transform database reports to markers
-            const loadedMarkers: AnimalMarker[] = data.data.map((report: any) => ({
-              id: report._id,
-              coordinate: {
-                latitude: report.latitude,
-                longitude: report.longitude,
-              },
-              details: {
-                time: report.time,
-                animalType: report.animalType,
-                direction: report.direction,
-                injured: report.injured,
-                photos: report.photos || [],
-                additionalInfo: report.additionalInfo,
-                reportType: report.reportType || 'spotted-on-streets',
-              },
-            }));
+            // Map all reports and preserve server-provided reportType
+            const loadedMarkers: AnimalMarker[] = data.data
+              .filter((report: any) => typeof report.latitude === 'number' && typeof report.longitude === 'number')
+              .map((report: any) => ({
+                id: report._id,
+                coordinate: {
+                  latitude: report.latitude,
+                  longitude: report.longitude,
+                },
+                details: {
+                  time: report.time ?? report.lastSeenDate ?? '',
+                  animalType: report.animalType ?? 'PET',
+                  direction: report.direction ?? '',
+                  injured: !!report.injured,
+                  photos: report.photos || [],
+                  additionalInfo: report.additionalInfo ?? '',
+                  reportType: (report.reportType as 'lost-from-home' | 'spotted-on-streets') || 'spotted-on-streets',
+                },
+              }));
             setMarkers(loadedMarkers);
             console.log(`Loaded ${loadedMarkers.length} reports from database`);
           }
@@ -304,7 +305,7 @@ export default function Signal() {
           <Marker
             key={marker.id}
             coordinate={marker.coordinate}
-            pinColor="#668586"
+            pinColor={marker.details?.reportType === 'lost-from-home' ? '#23395B' : '#668586'}
           />
         ))}
         
@@ -312,7 +313,7 @@ export default function Signal() {
         {currentMarker && showModal && (
           <Marker 
             coordinate={currentMarker}
-            pinColor="#668586"
+            pinColor={reportType === 'lost-from-home' ? '#23395B' : '#668586'}
           />
         )}
       </MapView>
