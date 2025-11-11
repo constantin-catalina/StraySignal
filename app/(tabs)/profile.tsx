@@ -92,13 +92,20 @@ export default function Profile() {
 
   const fetchLostPetCases = useCallback(async () => {
     try {
+      if (!user?.id) {
+        setLoading(false);
+        return;
+      }
+
       const response = await fetch(API_ENDPOINTS.REPORTS);
       
       if (response.ok) {
         const data = await response.json();
         if (data.success && data.data) {
-          // Filter for lost-from-home reports only
-          const lostCases = data.data.filter((report: any) => report.reportType === 'lost-from-home');
+          // Filter for lost-from-home reports owned by current user
+          const lostCases = data.data.filter(
+            (report: any) => report.reportType === 'lost-from-home' && report.reportedBy === user.id
+          );
           setLostPetCases(lostCases);
         }
       }
@@ -107,7 +114,7 @@ export default function Profile() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [user?.id]);
 
   useFocusEffect(
     useCallback(() => {

@@ -1,5 +1,6 @@
 import TopBar from '@/components/TopBar';
 import { API_ENDPOINTS } from '@/constants/api';
+import { useUser } from '@clerk/clerk-expo';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
@@ -37,6 +38,7 @@ interface AnimalMarker {
 
 export default function Signal() {
   const router = useRouter();
+  const { user } = useUser();
   const [region, setRegion] = useState<Region>({
     latitude: 37.78825,
     longitude: -122.4324,
@@ -235,6 +237,7 @@ export default function Signal() {
       additionalInfo,
       reportType,
       timestamp: new Date().toISOString(),
+      reportedBy: user?.id || 'anonymous', // Add user ID to identify reporter
     };
 
     try {

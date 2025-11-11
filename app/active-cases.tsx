@@ -1,5 +1,6 @@
 import TopBarSecondary from '@/components/TopBarSecondary';
 import { API_ENDPOINTS } from '@/constants/api';
+import { useUser } from '@clerk/clerk-expo';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import React, { useCallback, useState } from 'react';
@@ -24,19 +25,25 @@ interface LostPetCase {
 
 export default function ActiveCases() {
   const router = useRouter();
+  const { user } = useUser();
   const [cases, setCases] = useState<LostPetCase[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const fetchActiveCases = async () => {
+  const fetchActiveCases = useCallback(async () => {
     setLoading(true);
     try {
+      if (!user?.id) {
+        setLoading(false);
+        return;
+      }
+
       const response = await fetch(API_ENDPOINTS.REPORTS);
       const result = await response.json();
 
       if (result.success) {
-        // Filter only lost-from-home reports
+        // Filter only lost-from-home reports owned by current user
         const lostPetCases = result.data.filter(
-          (report: any) => report.reportType === 'lost-from-home'
+          (report: any) => report.reportType === 'lost-from-home' && report.reportedBy === user.id
         );
         setCases(lostPetCases);
       }
@@ -46,13 +53,13 @@ export default function ActiveCases() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user?.id]);
 
   // Refresh data when screen comes into focus
   useFocusEffect(
     useCallback(() => {
       fetchActiveCases();
-    }, [])
+    }, [fetchActiveCases])
   );
 
   const formatDate = (dateString: string) => {

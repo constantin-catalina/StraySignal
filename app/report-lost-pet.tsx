@@ -1,5 +1,6 @@
 import TopBarSecondary from '@/components/TopBarSecondary';
 import { API_ENDPOINTS } from '@/constants/api';
+import { useUser } from '@clerk/clerk-expo';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import * as ImagePicker from 'expo-image-picker';
@@ -11,6 +12,7 @@ import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 
 export default function ReportLostPet() {
   const router = useRouter();
+  const { user } = useUser();
   
   // Form state
   const [petName, setPetName] = useState('');
@@ -200,6 +202,7 @@ export default function ReportLostPet() {
         distinctiveMarks: hasDistinctiveMarks ? distinctiveMarks : '',
         additionalInfo,
         photos: processedPhotos,
+        reportedBy: user?.id || 'anonymous', // Add user ID to identify owner
       };
 
   console.log('Submitting to:', API_ENDPOINTS.REPORTS_LOST_PET);
