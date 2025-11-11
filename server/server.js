@@ -127,6 +127,8 @@ app.post('/api/users', async (req, res) => {
       radiusPreference,
     } = req.body;
 
+    console.log('POST /api/users received:', { clerkId, name, email, phone, location, showPhoneNumber, radiusPreference });
+
     if (!clerkId || !name || !email) {
       return res.status(400).json({
         success: false,
@@ -140,13 +142,40 @@ app.post('/api/users', async (req, res) => {
     if (user) {
       // Update existing user
       user.name = name;
-      user.email = email;
-      user.phone = phone || user.phone;
-      user.location = location || user.location;
-      user.profileImage = profileImage || user.profileImage;
+      user.phone = phone !== undefined ? phone : user.phone;
+      user.location = location !== undefined ? location : user.location;
+      user.profileImage = profileImage !== undefined ? profileImage : user.profileImage;
       user.showPhoneNumber = showPhoneNumber !== undefined ? showPhoneNumber : user.showPhoneNumber;
-      user.radiusPreference = radiusPreference || user.radiusPreference;
-      await user.save();
+      user.radiusPreference = radiusPreference !== undefined ? radiusPreference : user.radiusPreference;
+      
+      // Only update email if it's different to avoid duplicate key error
+      if (user.email !== email) {
+        // Check if another user already has this email
+        const emailExists = await User.findOne({ email, clerkId: { $ne: clerkId } });
+        if (emailExists) {
+          return res.status(400).json({
+            success: false,
+            message: 'Email already in use by another account',
+          });
+        }
+        user.email = email;
+      }
+      
+      try {
+        await user.save();
+        console.log('User updated successfully:', user._id);
+      } catch (saveError) {
+        // Handle duplicate key errors
+        if (saveError.code === 11000) {
+          console.error('Duplicate key error during save:', saveError);
+          return res.status(400).json({
+            success: false,
+            message: 'Email already exists in another account. Cannot update.',
+            error: saveError.message,
+          });
+        }
+        throw saveError;
+      }
     } else {
       // Create new user
       user = new User({
@@ -160,6 +189,7 @@ app.post('/api/users', async (req, res) => {
         radiusPreference: radiusPreference || 2,
       });
       await user.save();
+      console.log('New user created:', user._id);
     }
 
     res.status(201).json({
@@ -168,6 +198,9 @@ app.post('/api/users', async (req, res) => {
     });
   } catch (error) {
     console.error('Error saving user:', error);
+    console.error('Error stack:', error.stack);
+    console.error('Error name:', error.name);
+    console.error('Error code:', error.code);
     res.status(500).json({
       success: false,
       message: 'Error saving user',

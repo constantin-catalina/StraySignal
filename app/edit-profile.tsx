@@ -42,8 +42,8 @@ export default function EditProfile() {
         const data = await response.json();
         if (data.success && data.data) {
           const userData = data.data;
-          // Prefer current Clerk user for core identity fields; use server data for the rest
-          setName(user?.fullName || userData.name || '');
+          // Use saved data from MongoDB (user can edit name); prefer Clerk for email/image only
+          setName(userData.name || user?.fullName || '');
           setEmail(user?.emailAddresses?.[0]?.emailAddress || userData.email || '');
           setPhone(userData.phone || '');
           setLocation(userData.location || '');
@@ -59,8 +59,8 @@ export default function EditProfile() {
         const savedData = await AsyncStorage.getItem(storageKey);
         if (savedData) {
         const profileData = JSON.parse(savedData);
-        // Prefer Clerk for name/email; use stored fallback only if Clerk missing
-        setName(user?.fullName || profileData.name || '');
+        // Use saved name from storage (user can edit); prefer Clerk for email/image only
+        setName(profileData.name || user?.fullName || '');
         setEmail(user?.emailAddresses?.[0]?.emailAddress || profileData.email || '');
         setPhone(profileData.phone || '');
         setLocation(profileData.location || '');
@@ -153,21 +153,35 @@ export default function EditProfile() {
       };
       
       console.log('Saving profile data:', profileData);
+      console.log('API endpoint:', API_ENDPOINTS.USERS);
 
       // Save to MongoDB via API
-      const response = await fetch(API_ENDPOINTS.USERS, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(profileData),
-      });
+      let response;
+      try {
+        response = await fetch(API_ENDPOINTS.USERS, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(profileData),
+        });
+      } catch (fetchError) {
+        console.error('Fetch error:', fetchError);
+        throw new Error(`Network error: ${fetchError instanceof Error ? fetchError.message : 'Unknown'}`);
+      }
 
       console.log('Response status:', response.status);
+      console.log('Response headers:', response.headers);
 
       if (!response.ok) {
-        const errorData = await response.text();
-        console.error('Server error:', errorData);
+        let errorData;
+        try {
+          errorData = await response.json();
+          console.error('Server error (JSON):', errorData);
+        } catch {
+          errorData = await response.text();
+          console.error('Server error (text):', errorData);
+        }
         throw new Error(`Failed to save profile to server: ${response.status}`);
       }
 
@@ -187,6 +201,7 @@ export default function EditProfile() {
       ]);
     } catch (error) {
       console.error('Error saving profile data:', error);
+      console.error('Error stack:', error instanceof Error ? error.stack : 'No stack');
       const errorMessage = error instanceof Error ? error.message : 'Please try again.';
       Alert.alert('Error', `Failed to save profile data: ${errorMessage}`);
     }

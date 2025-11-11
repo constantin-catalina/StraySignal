@@ -39,10 +39,10 @@ export default function Profile() {
   const [loading, setLoading] = useState(true);
   const [profileData, setProfileData] = useState<ProfileData>({});
 
-  // Always prefer live Clerk user names; fallback to stored profileData
-  const userName = user?.fullName ||
+  // Prefer saved name from profileData (user can edit); fallback to Clerk
+  const userName = profileData.name ||
+                   user?.fullName ||
                    `${user?.firstName || ''} ${user?.lastName || ''}`.trim() ||
-                   profileData.name ||
                    user?.emailAddresses?.[0]?.emailAddress?.split('@')[0] ||
                    'User';
   
@@ -50,7 +50,7 @@ export default function Profile() {
   const userImage = user?.imageUrl || profileData.profileImage;
   const userEmail = user?.emailAddresses?.[0]?.emailAddress || profileData.email || 'Not provided';
   const userPhone = profileData.phone || '';
-  const userLocation = profileData.location || 'Timisoara, Romania';
+  const userLocation = profileData.location || '';
   const showPhoneNumber = profileData.showPhoneNumber || false;
   const radiusPreference = profileData.radiusPreference || '2';
 
@@ -58,16 +58,24 @@ export default function Profile() {
     try {
       if (!user?.id) return;
 
+      console.log('Loading profile for ClerkId:', user.id);
+      console.log('Fetching from:', `${API_ENDPOINTS.USERS}/${user.id}`);
+
       // Try to load from MongoDB first
       const response = await fetch(`${API_ENDPOINTS.USERS}/${user.id}`);
       
+      console.log('Profile fetch response status:', response.status);
+      
       if (response.ok) {
         const data = await response.json();
+        console.log('Profile data from backend:', data);
         if (data.success && data.data) {
-          // Avoid overriding Clerk live name with stale stored name
-          setProfileData(prev => ({ ...data.data, name: prev.name }));
+          // Load fresh data from backend
+          setProfileData(data.data);
           return;
         }
+      } else {
+        console.log('Profile not found in backend for this ClerkId');
       }
 
       // Fallback to AsyncStorage if MongoDB fetch fails
@@ -164,10 +172,12 @@ export default function Profile() {
 
           {/* User Info */}
           <Text style={styles.userName}>{userName}</Text>
-          <View style={styles.locationContainer}>
-            <Ionicons name="location" size={20} color="#1E1F24" />
-            <Text style={styles.locationText}>{userLocation}</Text>
-          </View>
+          {userLocation && (
+            <View style={styles.locationContainer}>
+              <Ionicons name="location" size={20} color="#1E1F24" />
+              <Text style={styles.locationText}>{userLocation}</Text>
+            </View>
+          )}
 
           {/* Edit Profile Button */}
           <TouchableOpacity 
