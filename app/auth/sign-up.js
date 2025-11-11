@@ -1,8 +1,10 @@
+import { API_ENDPOINTS } from '@/constants/api';
+import { useOAuth, useSignUp, useUser } from '@clerk/clerk-expo';
 import { Ionicons } from '@expo/vector-icons';
+import { makeRedirectUri } from 'expo-auth-session';
 import { router } from 'expo-router';
-import { useEffect, useState } from 'react';
-import { Image, ImageBackground, Platform, SafeAreaView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { setSignedIn } from '../lib/auth';
+import { useEffect, useRef, useState } from 'react';
+import { Alert, Image, ImageBackground, Platform, SafeAreaView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 const BG = require('@/assets/backgrounds/Auth.png');
 const GOOGLE = require('@/assets/icons/google.png');
@@ -15,40 +17,106 @@ export default function SignUp() {
   const [showPassword, setShowPassword] = useState(false);
   const [accepted, setAccepted] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [emailStatus, setEmailStatus] = useState('');
+  const [passwordStatus, setPasswordStatus] = useState('');
 
-  // validation / status
-  const [emailStatus, setEmailStatus] = useState(''); // '', 'valid', 'invalid'
-  const [passwordStatus, setPasswordStatus] = useState(''); // '', 'valid', 'invalid'
+  const hasCreatedUser = useRef(false);
+  const { signUp, setActive, isLoaded } = useSignUp();
+  const { isLoaded: userLoaded, isSignedIn: userSignedIn, user } = useUser();
+  const google = useOAuth({ strategy: 'oauth_google' });
+  const facebook = useOAuth({ strategy: 'oauth_facebook' });
+
+  const redirectUri = makeRedirectUri({ scheme: 'straysignal' });
 
   const isValidEmail = (e) => /\S+@\S+\.\S+/.test(e);
   const canSubmit = name.trim() && emailStatus === 'valid' && passwordStatus === 'valid' && accepted && !loading;
 
-  // email validation immediate
   useEffect(() => {
     if (!email) return setEmailStatus('');
     setEmailStatus(isValidEmail(email) ? 'valid' : 'invalid');
   }, [email]);
 
-  // password validation immediate (min 6 chars)
   useEffect(() => {
     if (!password) return setPasswordStatus('');
     setPasswordStatus(password.length >= 6 ? 'valid' : 'invalid');
   }, [password]);
 
-  const handleSocial = async () => {
-    await setSignedIn(true);
-    router.replace('/(tabs)/home');
+
+  // Create backend user once Clerk user info is loaded and signed in
+  useEffect(() => {
+    async function handleUserCreationAndRedirect() {
+      if (userLoaded && userSignedIn && user && !hasCreatedUser.current) {
+        hasCreatedUser.current = true;
+        const id = user.id;
+        const emailAddr = user.emailAddresses?.[0]?.emailAddress || '';
+        const fullName = user.fullName || user.firstName || name;
+          try {
+            const response = await fetch(API_ENDPOINTS.USERS, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ clerkId: id, email: emailAddr, name: fullName }),
+            });
+            let shouldRedirect = false;
+            if (response.ok) {
+              shouldRedirect = true;
+            } else {
+              const errorData = await response.json();
+              // Only allow redirect if duplicate user error (already exists)
+              if (errorData.error?.includes('E11000')) {
+                shouldRedirect = true;
+              } else {
+                Alert.alert('Registration failed', 'Could not create user in backend.');
+              }
+            }
+            // If user was created via social, redirect to home
+              if (shouldRedirect && user.externalAccounts && user.externalAccounts.length > 0) {
+                // Wait for navigation stack to switch to SignedIn before redirecting
+                setTimeout(() => {
+                  router.replace('/(tabs)/home');
+                }, 100);
+              }
+          } catch (_err) {
+            Alert.alert('Registration failed', 'Network error while creating user.');
+          }
+      }
+    }
+    handleUserCreationAndRedirect();
+  }, [userLoaded, userSignedIn, user, name]);
+
+  const handleSocial = async (provider) => {
+    if (!isLoaded) return;
+    setLoading(true);
+    try {
+      const oauth = provider === 'google' ? google : facebook;
+      const { createdSessionId, setActive: setActiveOAuth } = await oauth.startOAuthFlow({ redirectUrl: redirectUri });
+      if (createdSessionId) {
+        await setActiveOAuth?.({ session: createdSessionId });
+        // Redirect will happen after backend user creation in useEffect
+      }
+    } catch (e) {
+      console.warn(e);
+      Alert.alert('Social sign-up failed', 'Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleSubmit = async () => {
-    if (!canSubmit) return;
+    if (!canSubmit || !isLoaded) return;
     setLoading(true);
     try {
-      // TODO: integrate real signup
-      await setSignedIn(true);
-      router.replace('/(tabs)/home');
+      const res = await signUp.create({
+        emailAddress: email.trim(),
+        password,
+        firstName: name.trim(),
+      });
+      if (res.status === 'complete' && res.createdSessionId) {
+        // Do NOT set active session, just redirect to sign-in page
+        router.replace('/auth/sign-in');
+      }
     } catch (e) {
       console.warn(e);
+      Alert.alert('Sign up failed', e?.errors?.[0]?.longMessage || 'Please try again.');
     } finally {
       setLoading(false);
     }
@@ -66,12 +134,12 @@ export default function SignUp() {
 
             <Text style={styles.title}>Create your account</Text>
 
-            <TouchableOpacity style={[styles.cta, styles.ctaPrimary]} onPress={handleSocial} activeOpacity={0.9}>
+            <TouchableOpacity style={[styles.cta, styles.ctaPrimary]} onPress={() => handleSocial('facebook')} activeOpacity={0.9} disabled={loading}>
               <Image source={FB} style={styles.leftIcon} resizeMode="contain" />
               <Text style={[styles.ctaText, styles.ctaTextPrimary]}>CONTINUE WITH FACEBOOK</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={[styles.cta, styles.ctaOutline]} onPress={handleSocial} activeOpacity={0.9}>
+            <TouchableOpacity style={[styles.cta, styles.ctaOutline]} onPress={() => handleSocial('google')} activeOpacity={0.9} disabled={loading}>
               <Image source={GOOGLE} style={styles.leftIcon} resizeMode="contain" />
               <Text style={styles.ctaText}>CONTINUE WITH GOOGLE</Text>
             </TouchableOpacity>

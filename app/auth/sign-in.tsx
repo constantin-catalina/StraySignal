@@ -1,8 +1,9 @@
-import { useAuth, useOAuth, useSignIn } from '@clerk/clerk-expo';
+import { API_ENDPOINTS } from '@/constants/api';
+import { useAuth, useOAuth, useSignIn, useUser } from '@clerk/clerk-expo';
 import { Ionicons } from '@expo/vector-icons';
 import { makeRedirectUri } from 'expo-auth-session';
 import { Link, router } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Alert, Image, ImageBackground, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 const BG = require('@/assets/backgrounds/Auth.png');
@@ -12,6 +13,8 @@ const FB = require('@/assets/icons/facebook.png');
 export default function SignInScreen() {
   const { signIn, setActive, isLoaded } = useSignIn();
   const { isSignedIn } = useAuth();
+  const { isLoaded: userLoaded, isSignedIn: userSignedIn, user } = useUser();
+  const hasCreatedUser = useRef(false);
 
   const google = useOAuth({ strategy: 'oauth_google' });
   const facebook = useOAuth({ strategy: 'oauth_facebook' });
@@ -21,8 +24,45 @@ export default function SignInScreen() {
 
   const redirectUri = makeRedirectUri({ scheme: 'straysignal' });
 
+
+  // Create backend user once Clerk user info is loaded and signed in
+  useEffect(() => {
+    async function handleUserCreationAndRedirect() {
+      if (userLoaded && userSignedIn && user && !hasCreatedUser.current) {
+        hasCreatedUser.current = true;
+        const id = user.id;
+        const emailAddr = user.emailAddresses?.[0]?.emailAddress || '';
+        const name = user.fullName || user.firstName || '';
+          try {
+            const response = await fetch(API_ENDPOINTS.USERS, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ clerkId: id, email: emailAddr, name }),
+            });
+            let shouldRedirect = false;
+            if (response.ok) {
+              shouldRedirect = true;
+            } else {
+              const errorData = await response.json();
+              // Only allow redirect if duplicate user error (already exists)
+              if (errorData.error?.includes('E11000')) {
+                shouldRedirect = true;
+              } else {
+                Alert.alert('Sign-in failed', 'Could not create user in backend.');
+              }
+            }
+            if (shouldRedirect) {
+              router.replace('/(tabs)/home');
+            }
+          } catch (_err) {
+            Alert.alert('Sign-in failed', 'Network error while creating user.');
+          }
+      }
+    }
+    handleUserCreationAndRedirect();
+  }, [userLoaded, userSignedIn, user]);
+
   async function onGooglePress() {
-    // if already signed in, go to home instead of starting OAuth
     if (isSignedIn) {
       router.replace('/(tabs)/home');
       return;
@@ -33,13 +73,12 @@ export default function SignInScreen() {
         await google.startOAuthFlow({ redirectUrl: redirectUri });
       if (createdSessionId) {
         await setActiveOAuth?.({ session: createdSessionId });
-        router.replace('/(tabs)/home');
+        // Redirect will happen after backend user creation in useEffect
       }
     } catch (e: any) {
-      // if OAuth fails because user is already signed in, redirect silently
       const msg = e?.message ?? 'Please try again.';
       if (msg.toLowerCase().includes('already signed')) {
-        router.replace('/(tabs)/home');
+        // Redirect will happen after backend user creation in useEffect
         return;
       }
       Alert.alert('Google sign-in failed', msg);
@@ -47,7 +86,6 @@ export default function SignInScreen() {
   }
 
   async function onFacebookPress() {
-    // if already signed in, go to home instead of starting OAuth
     if (isSignedIn) {
       router.replace('/(tabs)/home');
       return;
@@ -58,12 +96,12 @@ export default function SignInScreen() {
         await facebook.startOAuthFlow({ redirectUrl: redirectUri });
       if (createdSessionId) {
         await setActiveOAuth?.({ session: createdSessionId });
-        router.replace('/(tabs)/home');
+        // Redirect will happen after backend user creation in useEffect
       }
     } catch (e: any) {
       const msg = e?.message ?? 'Please try again.';
       if (msg.toLowerCase().includes('already signed')) {
-        router.replace('/(tabs)/home');
+        // Redirect will happen after backend user creation in useEffect
         return;
       }
       Alert.alert('Facebook sign-in failed', msg);

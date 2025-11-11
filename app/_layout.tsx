@@ -30,9 +30,10 @@ export default function RootLayout() {
           {/* Auth flow shown when signed out */}
           <SignedOut>
             <Stack screenOptions={{ headerShown: false }}>
+              <Stack.Screen name="index" />
               <Stack.Screen name="auth/sign-in" />
               <Stack.Screen name="auth/sign-up" />
-              <Stack.Screen name="auth/forgot-password" />   {/* <-- add this */}
+              <Stack.Screen name="auth/forgot-password" />
             </Stack>
           </SignedOut>
 

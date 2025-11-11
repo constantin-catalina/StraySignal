@@ -3,6 +3,7 @@ import React from 'react';
 import { Dimensions, Image, ImageBackground, Platform, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+
 export default function Welcome() {
   return (
     <View style={styles.root}>
