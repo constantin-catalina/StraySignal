@@ -1,8 +1,8 @@
+import { useAuth } from '@clerk/clerk-expo';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { Image, Modal, Platform, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { setSignedIn } from '../app/lib/auth';
 
 type Props = {
   title?: string;
@@ -12,6 +12,7 @@ type Props = {
 
 export default function TopBar({ title = 'StraySignal', onBack, showRightDots = true }: Props) {
   const router = useRouter();
+  const { signOut } = useAuth();
   const [showMenu, setShowMenu] = useState(false);
   const logo = require('../assets/logos/blue-logo.png');
 
@@ -20,9 +21,9 @@ export default function TopBar({ title = 'StraySignal', onBack, showRightDots = 
   const barHeight = baseHeight + topPadding;
 
   const handleLogout = async () => {
-    setShowMenu(false);
-    await setSignedIn(false);
-    router.replace('/auth/sign-in');
+  setShowMenu(false);
+  await signOut();
+  // No manual redirect needed; Clerk will switch to SignedOut stack
   };
 
   return (

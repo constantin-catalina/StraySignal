@@ -7,7 +7,8 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import React, { useCallback, useState } from 'react';
 import { Image, ImageBackground, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
-const PROFILE_DATA_KEY = 'user_profile_data';
+// Per-user storage to avoid mixing data between different signed-in accounts
+const PROFILE_DATA_KEY_PREFIX = 'user_profile_data:';
 
 interface LostPetCase {
   _id: string;
@@ -33,19 +34,22 @@ interface ProfileData {
 export default function Profile() {
   const router = useRouter();
   const { user, isLoaded } = useUser();
+  const storageKey = user?.id ? `${PROFILE_DATA_KEY_PREFIX}${user.id}` : null;
   const [lostPetCases, setLostPetCases] = useState<LostPetCase[]>([]);
   const [loading, setLoading] = useState(true);
   const [profileData, setProfileData] = useState<ProfileData>({});
 
-  // Get user info with fallbacks from saved data or Clerk
-  const userName = profileData.name || user?.fullName || 
-                   `${user?.firstName || ''} ${user?.lastName || ''}`.trim() || 
-                   user?.emailAddresses?.[0]?.emailAddress?.split('@')[0] || 
+  // Always prefer live Clerk user names; fallback to stored profileData
+  const userName = user?.fullName ||
+                   `${user?.firstName || ''} ${user?.lastName || ''}`.trim() ||
+                   profileData.name ||
+                   user?.emailAddresses?.[0]?.emailAddress?.split('@')[0] ||
                    'User';
   
-  const userImage = profileData.profileImage || user?.imageUrl;
-  const userEmail = profileData.email || user?.emailAddresses?.[0]?.emailAddress || 'Not provided';
-  const userPhone = profileData.phone || '+40720013113';
+  // Prefer Clerk for email and avatar; use stored values only as fallback
+  const userImage = user?.imageUrl || profileData.profileImage;
+  const userEmail = user?.emailAddresses?.[0]?.emailAddress || profileData.email || 'Not provided';
+  const userPhone = profileData.phone || '';
   const userLocation = profileData.location || 'Timisoara, Romania';
   const showPhoneNumber = profileData.showPhoneNumber || false;
   const radiusPreference = profileData.radiusPreference || '2';
@@ -60,20 +64,23 @@ export default function Profile() {
       if (response.ok) {
         const data = await response.json();
         if (data.success && data.data) {
-          setProfileData(data.data);
+          // Avoid overriding Clerk live name with stale stored name
+          setProfileData(prev => ({ ...data.data, name: prev.name }));
           return;
         }
       }
 
       // Fallback to AsyncStorage if MongoDB fetch fails
-      const savedData = await AsyncStorage.getItem(PROFILE_DATA_KEY);
-      if (savedData) {
+      if (storageKey) {
+        const savedData = await AsyncStorage.getItem(storageKey);
+        if (savedData) {
         setProfileData(JSON.parse(savedData));
+        }
       }
     } catch (error) {
       console.error('Error loading profile data:', error);
     }
-  }, [user?.id]);
+  }, [user?.id, storageKey]);
 
   const fetchLostPetCases = useCallback(async () => {
     try {
@@ -173,9 +180,9 @@ export default function Profile() {
           {/* Contact Info Section */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>CONTACT INFO:</Text>
-            <Text style={styles.infoText}>Phone number: {userPhone}</Text>
+            {userPhone && <Text style={styles.infoText}>Phone number: {userPhone}</Text>}
             <Text style={styles.infoText}>Email: {userEmail}</Text>
-            <Text style={styles.infoText}>Show my phone number in lost pet cases: {showPhoneNumber ? 'YES' : 'NO'}</Text>
+            {userPhone && <Text style={styles.infoText}>Show my phone number in lost pet cases: {showPhoneNumber ? 'YES' : 'NO'}</Text>}
           </View>
 
           {/* My Lost Pet Cases Section */}

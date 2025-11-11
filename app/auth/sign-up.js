@@ -1,5 +1,5 @@
 import { API_ENDPOINTS } from '@/constants/api';
-import { useOAuth, useSignUp, useUser } from '@clerk/clerk-expo';
+import { useAuth, useOAuth, useSignUp, useUser } from '@clerk/clerk-expo';
 import { Ionicons } from '@expo/vector-icons';
 import { makeRedirectUri } from 'expo-auth-session';
 import { router } from 'expo-router';
@@ -23,6 +23,7 @@ export default function SignUp() {
   const hasCreatedUser = useRef(false);
   const { signUp, setActive, isLoaded } = useSignUp();
   const { isLoaded: userLoaded, isSignedIn: userSignedIn, user } = useUser();
+  const { signOut } = useAuth();
   const google = useOAuth({ strategy: 'oauth_google' });
   const facebook = useOAuth({ strategy: 'oauth_facebook' });
 
@@ -68,13 +69,13 @@ export default function SignUp() {
                 Alert.alert('Registration failed', 'Could not create user in backend.');
               }
             }
-            // If user was created via social, redirect to home
-              if (shouldRedirect && user.externalAccounts && user.externalAccounts.length > 0) {
-                // Wait for navigation stack to switch to SignedIn before redirecting
-                setTimeout(() => {
-                  router.replace('/(tabs)/home');
-                }, 100);
-              }
+            // Redirect to home after successful backend creation (email or social)
+            if (shouldRedirect) {
+              // Wait briefly to ensure SignedIn stack is active
+              setTimeout(() => {
+                router.replace('/(tabs)/home');
+              }, 50);
+            }
           } catch (_err) {
             Alert.alert('Registration failed', 'Network error while creating user.');
           }
@@ -105,14 +106,20 @@ export default function SignUp() {
     if (!canSubmit || !isLoaded) return;
     setLoading(true);
     try {
+      // Ensure no stale session (e.g., previously signed in with Facebook)
+      if (userSignedIn) {
+        await signOut();
+      }
+
       const res = await signUp.create({
         emailAddress: email.trim(),
         password,
         firstName: name.trim(),
       });
       if (res.status === 'complete' && res.createdSessionId) {
-        // Do NOT set active session, just redirect to sign-in page
-        router.replace('/auth/sign-in');
+        // Keep the user signed in by setting active session
+        await setActive?.({ session: res.createdSessionId });
+        // Backend creation + redirect handled in useEffect once user is signed in
       }
     } catch (e) {
       console.warn(e);

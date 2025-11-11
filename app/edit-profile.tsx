@@ -8,11 +8,13 @@ import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { Alert, Image, ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
-const PROFILE_DATA_KEY = 'user_profile_data';
+// Per-user storage to avoid mixing data between different signed-in accounts
+const PROFILE_DATA_KEY_PREFIX = 'user_profile_data:';
 
 export default function EditProfile() {
   const router = useRouter();
   const { user } = useUser();
+  const storageKey = user?.id ? `${PROFILE_DATA_KEY_PREFIX}${user.id}` : null;
 
   // Initialize state with current user data
   const [name, setName] = useState(user?.fullName || '');
@@ -40,28 +42,32 @@ export default function EditProfile() {
         const data = await response.json();
         if (data.success && data.data) {
           const userData = data.data;
-          setName(userData.name || user?.fullName || '');
-          setEmail(userData.email || user?.emailAddresses?.[0]?.emailAddress || '');
+          // Prefer current Clerk user for core identity fields; use server data for the rest
+          setName(user?.fullName || userData.name || '');
+          setEmail(user?.emailAddresses?.[0]?.emailAddress || userData.email || '');
           setPhone(userData.phone || '');
           setLocation(userData.location || '');
           setShowPhoneNumber(userData.showPhoneNumber || false);
           setRadiusPreference(userData.radiusPreference?.toString() || '2');
-          setProfileImage(userData.profileImage || user?.imageUrl || '');
+          setProfileImage(user?.imageUrl || userData.profileImage || '');
           return;
         }
       }
 
       // Fallback to AsyncStorage if MongoDB fetch fails
-      const savedData = await AsyncStorage.getItem(PROFILE_DATA_KEY);
-      if (savedData) {
+      if (storageKey) {
+        const savedData = await AsyncStorage.getItem(storageKey);
+        if (savedData) {
         const profileData = JSON.parse(savedData);
-        setName(profileData.name || user?.fullName || '');
-        setEmail(profileData.email || user?.emailAddresses?.[0]?.emailAddress || '');
+        // Prefer Clerk for name/email; use stored fallback only if Clerk missing
+        setName(user?.fullName || profileData.name || '');
+        setEmail(user?.emailAddresses?.[0]?.emailAddress || profileData.email || '');
         setPhone(profileData.phone || '');
         setLocation(profileData.location || '');
         setShowPhoneNumber(profileData.showPhoneNumber || false);
         setRadiusPreference(profileData.radiusPreference?.toString() || '2');
-        setProfileImage(profileData.profileImage || user?.imageUrl || '');
+        setProfileImage(user?.imageUrl || profileData.profileImage || '');
+        }
       }
     } catch (error) {
       console.error('Error loading profile data:', error);
@@ -131,6 +137,9 @@ export default function EditProfile() {
         return;
       }
 
+      // If no phone, ensure showPhoneNumber is false
+      const finalShowPhoneNumber = phone && phone.trim().length > 0 ? showPhoneNumber : false;
+
       // Prepare profile data
       const profileData = {
         clerkId: user.id,
@@ -138,7 +147,7 @@ export default function EditProfile() {
         email,
         phone,
         location,
-        showPhoneNumber,
+        showPhoneNumber: finalShowPhoneNumber,
         radiusPreference: parseInt(radiusPreference) || 2,
         profileImage,
       };
@@ -166,7 +175,9 @@ export default function EditProfile() {
       console.log('Save successful:', result);
 
       // Also save to AsyncStorage for offline access
-      await AsyncStorage.setItem(PROFILE_DATA_KEY, JSON.stringify(profileData));
+      if (storageKey) {
+        await AsyncStorage.setItem(storageKey, JSON.stringify(profileData));
+      }
       
       Alert.alert('Success', 'Profile updated successfully!', [
         {
@@ -266,10 +277,14 @@ export default function EditProfile() {
               <Switch
                 value={showPhoneNumber}
                 onValueChange={setShowPhoneNumber}
+                disabled={!phone || phone.trim().length === 0}
                 trackColor={{ false: '#767577', true: '#5F9EA0' }}
                 thumbColor={showPhoneNumber ? '#fff' : '#f4f3f4'}
               />
             </View>
+            {(!phone || phone.trim().length === 0) && (
+              <Text style={styles.helperText}>Enter a phone number to enable this option</Text>
+            )}
           </View>
 
           {/* Radius Preference */}
