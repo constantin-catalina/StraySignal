@@ -486,6 +486,61 @@ app.delete('/api/reports/:id', async (req, res) => {
   }
 });
 
+// PUT update an existing animal report (primarily for lost pet posters)
+app.put('/api/reports/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    // Allow updating a subset of fields; ignore unknown keys silently
+    const allowedFields = [
+      'petName',
+      'animalType',
+      'breed',
+      'lastSeenLocation',
+      'lastSeenDate',
+      'hasReward',
+      'hasDistinctiveMarks',
+      'distinctiveMarks',
+      'additionalInfo'
+    ];
+    const updates = {};
+    for (const key of allowedFields) {
+      if (req.body[key] !== undefined) {
+        // Special handling for date field
+        if (key === 'lastSeenDate' && req.body[key]) {
+          updates[key] = new Date(req.body[key]);
+        } else {
+          updates[key] = req.body[key];
+        }
+      }
+    }
+
+    // Debug log to verify the route is hit and what's being updated
+    console.log(`[PUT] /api/reports/${id}`, { keys: Object.keys(updates) });
+
+    if (Object.keys(updates).length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'No valid fields provided for update'
+      });
+    }
+
+    const updated = await AnimalReport.findByIdAndUpdate(
+      id,
+      { $set: updates },
+      { new: true, runValidators: true }
+    );
+
+    if (!updated) {
+      return res.status(404).json({ success: false, message: 'Report not found' });
+    }
+
+    res.json({ success: true, data: updated });
+  } catch (error) {
+    console.error('Error updating report:', error);
+    res.status(500).json({ success: false, message: 'Error updating report', error: error.message });
+  }
+});
+
 // Helper function to calculate distance between two coordinates (Haversine formula)
 function calculateDistance(lat1, lon1, lat2, lon2) {
   const R = 6371; // Radius of the Earth in kilometers

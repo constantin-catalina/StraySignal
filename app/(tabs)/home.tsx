@@ -121,7 +121,7 @@ export default function HomeScreen() {
             <TouchableOpacity 
               style={styles.card}
               activeOpacity={0.7}
-              onPress={() => {/* Navigate to poster creation */}}
+              onPress={() => router.push('/poster-generator')}
             >
               <View style={styles.cardContent}>
                 <Text style={styles.cardTitle}>Create a printable poster</Text>
