@@ -5,7 +5,8 @@ import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as WebBrowser from 'expo-web-browser';
 
-import { tokenCache } from '@/utils/clerkTokenCache'; // shown below
+import { AlertProvider } from '@/contexts/AlertContext';
+import { tokenCache } from '@/utils/clerkTokenCache';
 import { ClerkLoaded, ClerkProvider, SignedIn, SignedOut } from '@clerk/clerk-expo';
 
 WebBrowser.maybeCompleteAuthSession();
@@ -17,28 +18,30 @@ export default function RootLayout() {
   return (
     <ClerkProvider publishableKey={publishableKey} tokenCache={tokenCache}>
       <ClerkLoaded>
-        <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+        <AlertProvider>
+          <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
 
-          {/* App shown only when signed in */}
-          <SignedIn>
-            <Stack screenOptions={{ headerShown: false }}>
-              <Stack.Screen name="(tabs)" />
-              <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
-            </Stack>
-          </SignedIn>
+            {/* App shown only when signed in */}
+            <SignedIn>
+              <Stack screenOptions={{ headerShown: false }}>
+                <Stack.Screen name="(tabs)" />
+                <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
+              </Stack>
+            </SignedIn>
 
-          {/* Auth flow shown when signed out */}
-          <SignedOut>
-            <Stack screenOptions={{ headerShown: false }}>
-              <Stack.Screen name="index" />
-              <Stack.Screen name="auth/sign-in" />
-              <Stack.Screen name="auth/sign-up" />
-              <Stack.Screen name="auth/forgot-password" />
-            </Stack>
-          </SignedOut>
+            {/* Auth flow shown when signed out */}
+            <SignedOut>
+              <Stack screenOptions={{ headerShown: false }}>
+                <Stack.Screen name="index" />
+                <Stack.Screen name="auth/sign-in" />
+                <Stack.Screen name="auth/sign-up" />
+                <Stack.Screen name="auth/forgot-password" />
+              </Stack>
+            </SignedOut>
 
-          <StatusBar style="auto" />
-        </ThemeProvider>
+            <StatusBar style="auto" />
+          </ThemeProvider>
+        </AlertProvider>
       </ClerkLoaded>
     </ClerkProvider>
   );
