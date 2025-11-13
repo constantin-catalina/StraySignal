@@ -104,7 +104,7 @@ export default function HomeScreen() {
             <TouchableOpacity 
               style={styles.card}
               activeOpacity={0.7}
-              onPress={() => router.push('/(tabs)/signal')}
+              onPress={() => router.push('/pet-route')}
             >
               <View style={styles.cardContent}>
                 <Text style={styles.cardTitle}>Check your pet&#39;s route</Text>
