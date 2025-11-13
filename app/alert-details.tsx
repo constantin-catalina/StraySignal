@@ -40,6 +40,51 @@ export default function AlertDetails() {
   const [report, setReport] = useState<ReportDetails | null>(null);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
+  const [checking, setChecking] = useState(false);
+
+  const handleCheckSighting = async () => {
+    if (!params.matchId) {
+      Alert.alert('Error', 'Cannot mark as checked: No match ID available');
+      return;
+    }
+
+    try {
+      setChecking(true);
+      const url = `${API_ENDPOINTS.MATCHES}/${params.matchId}`;
+      console.log('Checking sighting - URL:', url);
+      console.log('Checking sighting - Match ID:', params.matchId);
+      
+      const response = await fetch(url, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          checked: true,
+        }),
+      });
+
+      console.log('Check response status:', response.status);
+      const responseData = await response.json();
+      console.log('Check response data:', responseData);
+
+      if (response.ok) {
+        Alert.alert('Success', 'Sighting marked as checked and added to pet route', [
+          {
+            text: 'OK',
+            onPress: () => router.back(),
+          },
+        ]);
+      } else {
+        Alert.alert('Error', `Failed to mark sighting as checked: ${responseData.message || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error('Error checking sighting:', error);
+      Alert.alert('Error', 'Network error. Please try again.');
+    } finally {
+      setChecking(false);
+    }
+  };
 
   useEffect(() => {
     const fetchReportDetails = async () => {
@@ -138,6 +183,9 @@ export default function AlertDetails() {
         onClose={() => setShowModal(false)}
         report={report}
         currentUserId={user?.id}
+        matchId={params.matchId as string | undefined}
+        onCheckSighting={handleCheckSighting}
+        checking={checking}
       />
     </View>
   );
@@ -164,9 +212,20 @@ interface SpottedDetailModalProps {
   onClose: () => void;
   report: ReportDetails | null;
   currentUserId?: string;
+  matchId?: string;
+  onCheckSighting?: () => Promise<void>;
+  checking?: boolean;
 }
 
-const SpottedDetailModal: React.FC<SpottedDetailModalProps> = ({ visible, onClose, report, currentUserId }) => {
+const SpottedDetailModal: React.FC<SpottedDetailModalProps> = ({ 
+  visible, 
+  onClose, 
+  report, 
+  currentUserId,
+  matchId,
+  onCheckSighting,
+  checking = false,
+}) => {
   const [resolvedAddress, setResolvedAddress] = useState<string | null>(null);
 
   useEffect(() => {
@@ -274,8 +333,16 @@ const SpottedDetailModal: React.FC<SpottedDetailModalProps> = ({ visible, onClos
               )}
             </ScrollView>
             
-            <TouchableOpacity style={styles.modalCheckButton}>
-              <Text style={styles.modalCheckButtonText}>CHECK</Text>
+            <TouchableOpacity 
+              style={[styles.modalCheckButton, checking && styles.modalCheckButtonDisabled]}
+              onPress={onCheckSighting}
+              disabled={checking || !matchId}
+            >
+              {checking ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={styles.modalCheckButtonText}>CHECK</Text>
+              )}
             </TouchableOpacity>
             
             <View style={{ height: 20 }} />
@@ -533,6 +600,10 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     alignItems: 'center',
     marginTop: 20,
+  },
+  modalCheckButtonDisabled: {
+    backgroundColor: '#6B7A8F',
+    opacity: 0.6,
   },
   modalCheckButtonText: {
     color: '#fff',

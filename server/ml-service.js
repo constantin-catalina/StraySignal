@@ -6,6 +6,7 @@ const tf = require('@tensorflow/tfjs-node');
 const mobilenet = require('@tensorflow-models/mobilenet');
 const fetch = require('node-fetch');
 const sharp = require('sharp');
+const { Buffer } = require('buffer');
 
 let model = null;
 

@@ -85,6 +85,7 @@ export default function Inbox() {
                         alertLat: alert.latitude.toString(),
                         alertLng: alert.longitude.toString(),
                         alertType: alert.type,
+                        matchId: (alert.type === 'high-match' || alert.type === 'moderate-match') ? alert.id : undefined, // Pass matchId for match alerts
                       }
                     });
                   }}

@@ -748,20 +748,43 @@ app.get('/api/matches/user/:userId', async (req, res) => {
 app.patch('/api/matches/:matchId', async (req, res) => {
   try {
     const { matchId } = req.params;
-    const { status } = req.body;
+    const { status, checked } = req.body;
 
-    if (!['pending', 'viewed', 'confirmed', 'dismissed'].includes(status)) {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid status value',
-      });
+    console.log('PATCH /api/matches/:matchId called');
+    console.log('Match ID:', matchId);
+    console.log('Request body:', JSON.stringify(req.body));
+    console.log('Status value:', status, 'Type:', typeof status);
+    console.log('Checked value:', checked, 'Type:', typeof checked);
+
+    const updateData = {};
+    
+    if (status !== undefined && status !== null) {
+      if (!['pending', 'viewed', 'confirmed', 'dismissed'].includes(status)) {
+        console.log('Invalid status value received:', status);
+        return res.status(400).json({
+          success: false,
+          message: `Invalid status value: ${status}`,
+        });
+      }
+      updateData.status = status;
     }
+
+    if (checked !== undefined && checked !== null) {
+      updateData.checked = checked;
+      if (checked) {
+        updateData.checkedAt = new Date();
+      }
+    }
+
+    console.log('Update data:', updateData);
 
     const match = await Match.findByIdAndUpdate(
       matchId,
-      { status },
+      updateData,
       { new: true }
     );
+
+    console.log('Match found:', match ? 'Yes' : 'No');
 
     if (!match) {
       return res.status(404).json({
@@ -770,6 +793,7 @@ app.patch('/api/matches/:matchId', async (req, res) => {
       });
     }
 
+    console.log('Match updated successfully');
     res.json({
       success: true,
       data: match,

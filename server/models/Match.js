@@ -33,6 +33,13 @@ const matchSchema = new mongoose.Schema({
     enum: ['pending', 'viewed', 'confirmed', 'dismissed'],
     default: 'pending',
   },
+  checked: {
+    type: Boolean,
+    default: false,
+  },
+  checkedAt: {
+    type: Date,
+  },
   notified: {
     type: Boolean,
     default: false,
