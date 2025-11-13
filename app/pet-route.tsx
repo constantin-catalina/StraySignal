@@ -1,35 +1,53 @@
 import TopBarSecondary from '@/components/TopBarSecondary';
 import { API_ENDPOINTS } from '@/constants/api';
 import { useUser } from '@clerk/clerk-expo';
+import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE, Region } from 'react-native-maps';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 interface LostPetReport {
   _id: string;
   latitude: number;
   longitude: number;
   petName?: string;
-  animalType: string;
+  animalType?: string;
   reportType: string;
-  timestamp: string;
-  createdAt: string;
+  timestamp?: string;
+  createdAt?: string;
 }
 
 interface CheckedSighting {
   _id: string;
   latitude: number;
   longitude: number;
-  checkedAt: string;
-  timestamp: string;
-  createdAt: string;
+  checkedAt: Date;
+  timestamp?: string;
+  createdAt?: string;
+  address?: string;
+  petName?: string;
+}
+
+interface CombinedMarker {
+  _id: string;
+  latitude: number;
+  longitude: number;
+  timestamp: number;
+  type: 'lost' | 'sighting';
+  petName?: string;
+  animalType?: string;
+  address?: string;
+  checkedAt?: Date;
+  createdAt?: string;
 }
 
 export default function PetRoute() {
   const router = useRouter();
   const { user } = useUser();
+  const insets = useSafeAreaInsets();
   const [region, setRegion] = useState<Region>({
     latitude: 37.78825,
     longitude: -122.4324,
@@ -39,6 +57,7 @@ export default function PetRoute() {
   const [lostPetReports, setLostPetReports] = useState<LostPetReport[]>([]);
   const [checkedSightings, setCheckedSightings] = useState<CheckedSighting[]>([]);
   const [loading, setLoading] = useState(true);
+  const [modalVisible, setModalVisible] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -108,16 +127,37 @@ export default function PetRoute() {
       if (matchesResponse.ok) {
         const matchesData = await matchesResponse.json();
         if (matchesData.success && matchesData.data) {
-          const checkedMatches = matchesData.data
-            .filter((match: any) => match.checked && match.spottedReportId)
-            .map((match: any) => ({
-              _id: match.spottedReportId._id,
-              latitude: match.spottedReportId.latitude,
-              longitude: match.spottedReportId.longitude,
-              checkedAt: match.checkedAt,
-              timestamp: match.spottedReportId.timestamp,
-              createdAt: match.spottedReportId.createdAt,
-            }));
+          const checkedMatches = await Promise.all(
+            matchesData.data
+              .filter((match: any) => match.checked && match.spottedReportId)
+              .map(async (match: any) => {
+                // Get address for this sighting
+                let address = 'Unknown location';
+                try {
+                  const results = await Location.reverseGeocodeAsync({
+                    latitude: match.spottedReportId.latitude,
+                    longitude: match.spottedReportId.longitude,
+                  });
+                  if (results.length > 0) {
+                    const r = results[0];
+                    address = `${r.street || ''}, ${r.city || ''}`.trim().replace(/^,\s*/, '');
+                  }
+                } catch (err) {
+                  console.log('Error getting address:', err);
+                }
+
+                return {
+                  _id: match.spottedReportId._id,
+                  latitude: match.spottedReportId.latitude,
+                  longitude: match.spottedReportId.longitude,
+                  checkedAt: match.checkedAt,
+                  timestamp: match.spottedReportId.timestamp,
+                  createdAt: match.spottedReportId.createdAt,
+                  address,
+                  petName: match.lostPetId?.petName || 'Unknown',
+                };
+              })
+          );
           setCheckedSightings(checkedMatches);
         }
       }
@@ -135,12 +175,12 @@ export default function PetRoute() {
       ...lostPetReports.map(r => ({ 
         latitude: r.latitude, 
         longitude: r.longitude,
-        timestamp: new Date(r.timestamp || r.createdAt).getTime()
+        timestamp: new Date(r.timestamp || r.createdAt || Date.now()).getTime()
       })),
       ...checkedSightings.map(s => ({ 
         latitude: s.latitude, 
         longitude: s.longitude,
-        timestamp: new Date(s.timestamp || s.createdAt).getTime()
+        timestamp: new Date(s.timestamp || s.createdAt || Date.now()).getTime()
       }))
     ];
     
@@ -149,6 +189,48 @@ export default function PetRoute() {
     
     // Return just the coordinates in chronological order
     return allPoints.map(p => ({ latitude: p.latitude, longitude: p.longitude }));
+  };
+
+  // Get combined markers sorted by timestamp (newest first for modal)
+  const getCombinedMarkers = (): CombinedMarker[] => {
+    const markers: CombinedMarker[] = [
+      ...lostPetReports.map(r => ({
+        _id: r._id,
+        latitude: r.latitude,
+        longitude: r.longitude,
+        timestamp: new Date(r.timestamp || r.createdAt || Date.now()).getTime(),
+        type: 'lost' as const,
+        petName: r.petName,
+        animalType: r.animalType,
+        createdAt: r.createdAt,
+      })),
+      ...checkedSightings.map(s => ({
+        _id: s._id,
+        latitude: s.latitude,
+        longitude: s.longitude,
+        timestamp: new Date(s.timestamp || s.createdAt || Date.now()).getTime(),
+        type: 'sighting' as const,
+        petName: s.petName || 'Unknown',
+        address: s.address,
+        checkedAt: s.checkedAt,
+        createdAt: s.createdAt,
+      }))
+    ];
+
+    // Sort by timestamp, newest first
+    markers.sort((a, b) => b.timestamp - a.timestamp);
+    return markers;
+  };
+
+  const formatDate = (timestamp: number) => {
+    const date = new Date(timestamp);
+    return date.toLocaleDateString('en-US', { 
+      month: 'long', 
+      day: 'numeric', 
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
   };
 
   return (
@@ -210,6 +292,49 @@ export default function PetRoute() {
           )}
         </MapView>
       )}
+
+      {/* Bottom Modal with Last Seen History */}
+      {!loading && (lostPetReports.length > 0 || checkedSightings.length > 0) && (
+        <View style={[styles.modalContainer, { paddingBottom: insets.bottom }]}>
+          <TouchableOpacity 
+            style={styles.modalHeader}
+            onPress={() => setModalVisible(!modalVisible)}
+          >
+            <Ionicons 
+              name={modalVisible ? 'chevron-down' : 'chevron-up'} 
+              size={24} 
+              color="#fff" 
+            />
+            <Text style={styles.modalTitle}>LAST SEEN HISTORY</Text>
+          </TouchableOpacity>
+          
+          {modalVisible && (
+            <ScrollView style={styles.modalContent}>
+              {getCombinedMarkers().map((marker, index) => (
+                <View key={`${marker.type}-${marker._id}-${index}`} style={styles.historyItem}>
+                  <View style={[
+                    styles.markerIndicator,
+                    { backgroundColor: marker.type === 'lost' ? '#007AFF' : '#81ADC8' }
+                  ]} />
+                  <View style={styles.historyDetails}>
+                    <Text style={styles.historyTitle}>
+                      {marker.type === 'lost' 
+                        ? `${marker.petName || 'Lost Pet'} - Initial Report` 
+                        : `${marker.petName || 'Unknown'} - Sighting`}
+                    </Text>
+                    <Text style={styles.historyDate}>
+                      {formatDate(marker.timestamp)}
+                    </Text>
+                    {marker.address && (
+                      <Text style={styles.historyAddress}>{marker.address}</Text>
+                    )}
+                  </View>
+                </View>
+              ))}
+            </ScrollView>
+          )}
+        </View>
+      )}
     </View>
   );
 }
@@ -232,5 +357,67 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     marginTop: 16,
+  },
+  modalContainer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: '#1E1F24',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: '50%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 16,
+    gap: 8,
+  },
+  modalTitle: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+    letterSpacing: 1,
+  },
+  modalContent: {
+    maxHeight: 300,
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+  },
+  historyItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: '#2C3544',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    gap: 12,
+  },
+  markerIndicator: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    borderWidth: 3,
+    borderColor: '#fff',
+  },
+  historyDetails: {
+    flex: 1,
+  },
+  historyTitle: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  historyDate: {
+    color: '#81ADC8',
+    fontSize: 14,
+    marginBottom: 4,
+  },
+  historyAddress: {
+    color: '#9CA3AF',
+    fontSize: 13,
   },
 });
