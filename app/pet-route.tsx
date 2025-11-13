@@ -2,6 +2,7 @@ import TopBarSecondary from '@/components/TopBarSecondary';
 import { API_ENDPOINTS } from '@/constants/api';
 import { useUser } from '@clerk/clerk-expo';
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Location from 'expo-location';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
@@ -29,6 +30,7 @@ interface CheckedSighting {
   createdAt?: string;
   address?: string;
   petName?: string;
+  lostPetId?: string; // reference to lost pet report
 }
 
 interface CombinedMarker {
@@ -42,6 +44,7 @@ interface CombinedMarker {
   address?: string;
   checkedAt?: Date;
   createdAt?: string;
+  lostPetId?: string; // for color reference when ALL selected
 }
 
 export default function PetRoute() {
@@ -56,6 +59,11 @@ export default function PetRoute() {
   });
   const [lostPetReports, setLostPetReports] = useState<LostPetReport[]>([]);
   const [checkedSightings, setCheckedSightings] = useState<CheckedSighting[]>([]);
+  const [selectedPetId, setSelectedPetId] = useState<string>('ALL');
+  // Removed per-pet color mapping; using fixed colors
+  const STORAGE_KEY = 'PET_ROUTE_SELECTED_PET';
+
+  // lightenHex function removed
   const [loading, setLoading] = useState(true);
   const [modalVisible, setModalVisible] = useState(false);
 
@@ -93,6 +101,25 @@ export default function PetRoute() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
+
+  // Load persisted selection
+  useEffect(() => {
+    (async () => {
+      try {
+        const stored = await AsyncStorage.getItem(STORAGE_KEY);
+        if (stored) setSelectedPetId(stored);
+      } catch {}
+    })();
+  }, []);
+
+  // Persist selection changes
+  useEffect(() => {
+    (async () => {
+      try {
+        await AsyncStorage.setItem(STORAGE_KEY, selectedPetId);
+      } catch {}
+    })();
+  }, [selectedPetId]);
 
   const fetchPetRouteData = async () => {
     try {
@@ -155,6 +182,7 @@ export default function PetRoute() {
                   createdAt: match.spottedReportId.createdAt,
                   address,
                   petName: match.lostPetId?.petName || 'Unknown',
+                  lostPetId: match.lostPetId?._id,
                 };
               })
           );
@@ -168,33 +196,32 @@ export default function PetRoute() {
     }
   };
 
-  // Create polyline coordinates sorted by report time (chronological order)
+  // Create polyline coordinates for selected pet (or all) sorted chronologically
   const getPolylineCoordinates = () => {
-    // Combine all points with their timestamps
+    const filteredLost = selectedPetId === 'ALL' ? lostPetReports : lostPetReports.filter(r => r._id === selectedPetId);
+    const filteredSightings = selectedPetId === 'ALL' ? checkedSightings : checkedSightings.filter(s => s.lostPetId === selectedPetId);
     const allPoints = [
-      ...lostPetReports.map(r => ({ 
-        latitude: r.latitude, 
+      ...filteredLost.map(r => ({
+        latitude: r.latitude,
         longitude: r.longitude,
-        timestamp: new Date(r.timestamp || r.createdAt || Date.now()).getTime()
+        timestamp: new Date(r.timestamp || r.createdAt || Date.now()).getTime(),
       })),
-      ...checkedSightings.map(s => ({ 
-        latitude: s.latitude, 
+      ...filteredSightings.map(s => ({
+        latitude: s.latitude,
         longitude: s.longitude,
-        timestamp: new Date(s.timestamp || s.createdAt || Date.now()).getTime()
-      }))
+        timestamp: new Date(s.timestamp || s.createdAt || Date.now()).getTime(),
+      })),
     ];
-    
-    // Sort by timestamp (earliest first)
     allPoints.sort((a, b) => a.timestamp - b.timestamp);
-    
-    // Return just the coordinates in chronological order
     return allPoints.map(p => ({ latitude: p.latitude, longitude: p.longitude }));
   };
 
   // Get combined markers sorted by timestamp (newest first for modal)
   const getCombinedMarkers = (): CombinedMarker[] => {
+    const filteredLost = selectedPetId === 'ALL' ? lostPetReports : lostPetReports.filter(r => r._id === selectedPetId);
+    const filteredSightings = selectedPetId === 'ALL' ? checkedSightings : checkedSightings.filter(s => s.lostPetId === selectedPetId);
     const markers: CombinedMarker[] = [
-      ...lostPetReports.map(r => ({
+      ...filteredLost.map(r => ({
         _id: r._id,
         latitude: r.latitude,
         longitude: r.longitude,
@@ -203,8 +230,9 @@ export default function PetRoute() {
         petName: r.petName,
         animalType: r.animalType,
         createdAt: r.createdAt,
+        lostPetId: r._id,
       })),
-      ...checkedSightings.map(s => ({
+      ...filteredSightings.map(s => ({
         _id: s._id,
         latitude: s.latitude,
         longitude: s.longitude,
@@ -214,8 +242,10 @@ export default function PetRoute() {
         address: s.address,
         checkedAt: s.checkedAt,
         createdAt: s.createdAt,
+        lostPetId: s.lostPetId,
       }))
     ];
+  // (removed unused renderPetSelector)
 
     // Sort by timestamp, newest first
     markers.sort((a, b) => b.timestamp - a.timestamp);
@@ -258,6 +288,20 @@ export default function PetRoute() {
         onBack={() => router.back()} 
         showRightDots={true}
       />
+      {/* Pet Selector */}
+      {!loading && lostPetReports.length > 1 && (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.selectorBar}>
+            {lostPetReports.map(pet => (
+              <TouchableOpacity
+                key={pet._id}
+                onPress={() => setSelectedPetId(pet._id)}
+                style={[styles.selectorChip, selectedPetId === pet._id && styles.selectorChipActive]}
+              >
+                <Text style={styles.selectorText}>{pet.petName || 'Pet'}</Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+      )}
       
       {loading ? (
         <View style={styles.loadingContainer}>
@@ -273,8 +317,8 @@ export default function PetRoute() {
           showsUserLocation={true}
           showsMyLocationButton={true}
         >
-          {/* Blue markers for lost pet reports (owner's report) */}
-          {lostPetReports.map((report) => (
+          {/* Dark blue markers for lost pet reports (owner's report) */}
+          {(selectedPetId === 'ALL' ? lostPetReports : lostPetReports.filter(r => r._id === selectedPetId)).map((report) => (
             <Marker
               key={`lost-${report._id}`}
               coordinate={{
@@ -288,18 +332,21 @@ export default function PetRoute() {
           ))}
 
           {/* White markers for checked sightings */}
-          {checkedSightings.map((sighting) => (
+          {(selectedPetId === 'ALL' ? checkedSightings : checkedSightings.filter(s => s.lostPetId === selectedPetId)).map((sighting) => {
+            // Color logic simplified, lighter variable removed
+            return (
             <Marker
               key={`checked-${sighting._id}`}
               coordinate={{
                 latitude: sighting.latitude,
                 longitude: sighting.longitude,
               }}
-              pinColor="#81ADC8"
+                pinColor="#81ADC8"
               title="Sighting"
               description="Checked sighting"
             />
-          ))}
+            );
+          })}
 
           {/* Draw polyline connecting the points if there are multiple */}
           {(lostPetReports.length + checkedSightings.length) > 1 && (
@@ -311,6 +358,9 @@ export default function PetRoute() {
           )}
         </MapView>
       )}
+
+      {/* Legend */}
+        {/* Legend removed */}
 
       {/* Bottom Modal with Last Seen History */}
       {!loading && (lostPetReports.length > 0 || checkedSightings.length > 0) && (
@@ -443,5 +493,29 @@ const styles = StyleSheet.create({
   historyAddress: {
     color: '#9CA3AF',
     fontSize: 13,
+  },
+  selectorBar: {
+    maxHeight: 50,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    backgroundColor: '#1E1F24',
+  },
+  selectorChip: {
+    backgroundColor: '#2C3544',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    marginRight: 10,
+    borderWidth: 1,
+    borderColor: '#3E4A5A',
+  },
+  selectorChipActive: {
+    backgroundColor: '#81ADC8',
+    borderColor: '#81ADC8',
+  },
+  selectorText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
   },
 });

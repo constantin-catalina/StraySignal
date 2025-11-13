@@ -390,7 +390,7 @@ const styles = StyleSheet.create({
     <div class="section"><span class="label">Last seen:</span> ${location} on ${date}</div>
     ${marks ? `<div class="section"><span class="label">Distinctive marks:</span> ${marks.replace('Distinctive marks: ', '')}</div>` : ''}
     ${info ? `<div class="section"><span class="label">Details:</span> ${info}</div>` : ''}
-    <div class="contact">If seen, please contact: <br/> <br/> ${email}${phone ? ` or ${phone}` : ''}</div>
+    <div class="contact">If seen, please contact: <br/> ${email}${phone ? ` or ${phone}` : ''}</div>
     <div class="thankyou"> </br>Thank you for helping bring ${petName} home.</div>
     <div class="footer">
       ${Array.from({ length: 10 }).map(() => `
