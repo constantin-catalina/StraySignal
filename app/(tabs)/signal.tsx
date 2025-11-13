@@ -7,7 +7,7 @@ import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { Alert, Image, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, Image, Linking, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import MapView, { Marker, PROVIDER_GOOGLE, Region } from 'react-native-maps';
 
 interface AnimalMarker {
@@ -660,6 +660,41 @@ interface LostPetDetailModalProps {
 const LostPetDetailModal: React.FC<LostPetDetailModalProps> = ({ visible, onClose, marker, currentUserId }) => {
   const lost = marker?.details;
   const isOwnReport = marker?.reportedBy === currentUserId;
+  const handleCallOwner = async () => {
+    if (!marker?.reportedBy || !lost?.ownerShowsPhone) return;
+    try {
+      const res = await fetch(`${API_ENDPOINTS.USERS}/${marker.reportedBy}`);
+      if (!res.ok) {
+        Alert.alert('Unavailable', 'Could not fetch owner contact info.');
+        return;
+      }
+      const data = await res.json();
+      if (!data.success || !data.data) {
+        Alert.alert('Unavailable', 'Owner profile not found.');
+        return;
+      }
+      const { phone, showPhoneNumber } = data.data;
+      if (!showPhoneNumber || !phone) {
+        Alert.alert('Hidden', 'Owner has hidden their phone number.');
+        return;
+      }
+      const sanitized = String(phone).replace(/[^\d+]/g, '');
+      if (!sanitized) {
+        Alert.alert('Invalid', 'Owner phone number is invalid.');
+        return;
+      }
+      const telUrl = `tel:${sanitized}`;
+      const supported = await Linking.canOpenURL(telUrl);
+      if (!supported) {
+        Alert.alert('Not Supported', 'Phone calling is not supported on this device.');
+        return;
+      }
+      Linking.openURL(telUrl);
+    } catch (e) {
+      console.log('Call owner error:', e);
+      Alert.alert('Error', 'Failed to initiate call.');
+    }
+  };
   // Only render when the marker is for a lost pet; otherwise, this modal won't be shown
   if (!visible) return null;
   return (
@@ -735,7 +770,7 @@ const LostPetDetailModal: React.FC<LostPetDetailModalProps> = ({ visible, onClos
                     <Text style={styles.contactButtonText}>CHAT with owner</Text>
                   </TouchableOpacity>
                   {lost?.ownerShowsPhone && (
-                    <TouchableOpacity style={styles.contactButton}>
+                    <TouchableOpacity style={styles.contactButton} onPress={handleCallOwner}>
                       <Text style={styles.contactButtonText}>CALL owner</Text>
                     </TouchableOpacity>
                   )}

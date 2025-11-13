@@ -222,6 +222,25 @@ export default function PetRoute() {
     return markers;
   };
 
+  const handleMarkerPress = (marker: CombinedMarker) => {
+    try {
+      router.push({
+        pathname: '/marker-detail',
+        params: {
+          id: marker._id,
+          lat: marker.latitude.toString(),
+          lng: marker.longitude.toString(),
+          type: marker.type,
+          petName: marker.petName || '',
+          ts: marker.timestamp.toString(),
+          address: marker.address || '',
+        },
+      });
+    } catch (e) {
+      console.log('Navigation error:', e);
+    }
+  };
+
   const formatDate = (timestamp: number) => {
     const date = new Date(timestamp);
     return date.toLocaleDateString('en-US', { 
@@ -311,25 +330,30 @@ export default function PetRoute() {
           {modalVisible && (
             <ScrollView style={styles.modalContent}>
               {getCombinedMarkers().map((marker, index) => (
-                <View key={`${marker.type}-${marker._id}-${index}`} style={styles.historyItem}>
-                  <View style={[
-                    styles.markerIndicator,
-                    { backgroundColor: marker.type === 'lost' ? '#007AFF' : '#81ADC8' }
-                  ]} />
+                <TouchableOpacity
+                  key={`${marker.type}-${marker._id}-${index}`}
+                  style={styles.historyItem}
+                  activeOpacity={0.7}
+                  onPress={() => handleMarkerPress(marker)}
+                >
+                  <View
+                    style={[
+                      styles.markerIndicator,
+                      { backgroundColor: marker.type === 'lost' ? '#007AFF' : '#81ADC8' },
+                    ]}
+                  />
                   <View style={styles.historyDetails}>
                     <Text style={styles.historyTitle}>
-                      {marker.type === 'lost' 
-                        ? `${marker.petName || 'Lost Pet'} - Initial Report` 
+                      {marker.type === 'lost'
+                        ? `${marker.petName || 'Lost Pet'} - Initial Report`
                         : `${marker.petName || 'Unknown'} - Sighting`}
                     </Text>
-                    <Text style={styles.historyDate}>
-                      {formatDate(marker.timestamp)}
-                    </Text>
+                    <Text style={styles.historyDate}>{formatDate(marker.timestamp)}</Text>
                     {marker.address && (
                       <Text style={styles.historyAddress}>{marker.address}</Text>
                     )}
                   </View>
-                </View>
+                </TouchableOpacity>
               ))}
             </ScrollView>
           )}

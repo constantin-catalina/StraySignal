@@ -12,7 +12,7 @@ export default function Chat() {
       <TopBar onBack={() => router.back()} />
 
       <ThemedView style={styles.center}>
-        <ThemedText type="title">Hello world</ThemedText>
+        <ThemedText type="title">Coming soon...</ThemedText>
       </ThemedView>
     </ThemedView>
   );
