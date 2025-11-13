@@ -86,28 +86,92 @@ export const AlertProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         radiusPreference = parsed.radiusPreference || 2;
       }
 
-      const response = await fetch(API_ENDPOINTS.REPORTS);
-      if (!response.ok) {
+      // Fetch all data in parallel
+      const [reportsResponse, matchesResponse] = await Promise.all([
+        fetch(API_ENDPOINTS.REPORTS),
+        fetch(`${API_ENDPOINTS.MATCHES}/user/${user.id}`).catch(() => null),
+      ]);
+
+      if (!reportsResponse.ok) {
         throw new Error('Failed to fetch reports');
       }
 
-      const data = await response.json();
-      if (data.success && data.data) {
-        const allReports = data.data;
-        const nearbyAlerts: InjuredAnimalAlert[] = [];
-        
-        // Get user's lost pets
-        const userLostPets = allReports.filter((report: any) => 
-          report.reportType === 'lost-from-home' && 
-          report.reportedBy === user.id
-        );
+      const reportsData = await reportsResponse.json();
+      const nearbyAlerts: InjuredAnimalAlert[] = [];
 
-        // Check for injured animals
+      if (reportsData.success && reportsData.data) {
+        const allReports = reportsData.data;
+        
+        // First, collect all matched report IDs from ML matches
+        const matchedReportIds = new Set<string>();
+        
+        // Check for ML-based matches from backend first
+        if (matchesResponse && matchesResponse.ok) {
+          const matchesData = await matchesResponse.json();
+          console.log('Fetched matches data:', matchesData);
+          
+          if (matchesData.success && matchesData.data) {
+            console.log(`Found ${matchesData.data.length} matches for user`);
+            for (const match of matchesData.data) {
+              // Get the spotted report details
+              const spottedReport = match.spottedReportId;
+              if (!spottedReport || !spottedReport.latitude || !spottedReport.longitude) {
+                continue;
+              }
+
+              // Track this report as having a match
+              matchedReportIds.add(spottedReport._id);
+
+              const distance = calculateDistance(
+                userLat,
+                userLon,
+                spottedReport.latitude,
+                spottedReport.longitude
+              );
+
+              if (distance <= radiusPreference) {
+                let locationName = `${spottedReport.latitude.toFixed(4)}, ${spottedReport.longitude.toFixed(4)}`;
+                try {
+                  const [geocoded] = await Location.reverseGeocodeAsync({
+                    latitude: spottedReport.latitude,
+                    longitude: spottedReport.longitude,
+                  });
+                  if (geocoded) {
+                    const parts = [];
+                    if (geocoded.street) parts.push(geocoded.street);
+                    if (geocoded.city) parts.push(geocoded.city);
+                    if (parts.length > 0) locationName = parts.join(', ');
+                  }
+                } catch {
+                  // Use coordinates as fallback
+                }
+
+                nearbyAlerts.push({
+                  id: match._id,
+                  type: match.matchScore >= 90 ? 'high-match' : 'moderate-match',
+                  animalType: spottedReport.animalType || 'animal',
+                  location: locationName,
+                  distance: Math.round(distance * 10) / 10,
+                  timeAgo: getTimeAgo(spottedReport.timestamp || spottedReport.createdAt),
+                  latitude: spottedReport.latitude,
+                  longitude: spottedReport.longitude,
+                  matchScore: match.matchScore,
+                  matchedPetName: match.lostPetId?.petName,
+                  matchedPetId: match.lostPetId?._id,
+                });
+              }
+            }
+          }
+        }
+        
+        // Now check for injured animals, excluding those that already have match alerts
         const injuredReports = allReports.filter((report: any) => 
           report.injured === true &&
           report.reportType === 'spotted-on-streets' &&
           typeof report.latitude === 'number' &&
-          typeof report.longitude === 'number'
+          typeof report.longitude === 'number' &&
+          report.reportedBy !== user.id && // Exclude user's own reports
+          !matchedReportIds.has(report._id) // Exclude reports that have match alerts
         );
 
         for (const report of injuredReports) {
@@ -145,95 +209,6 @@ export const AlertProvider: React.FC<{ children: React.ReactNode }> = ({ childre
               latitude: report.latitude,
               longitude: report.longitude,
             });
-          }
-        }
-
-        // Check for potential matches with user's lost pets
-        const spottedReports = allReports.filter((report: any) => 
-          report.reportType === 'spotted-on-streets' &&
-          typeof report.latitude === 'number' &&
-          typeof report.longitude === 'number'
-        );
-
-        for (const lostPet of userLostPets) {
-          for (const spotted of spottedReports) {
-            const distance = calculateDistance(
-              userLat,
-              userLon,
-              spotted.latitude,
-              spotted.longitude
-            );
-
-            if (distance <= radiusPreference) {
-              // Simple matching logic based on animal type and proximity to last seen location
-              let matchScore = 0;
-              
-              // Base score for matching animal type
-              if (spotted.animalType?.toLowerCase() === lostPet.animalType?.toLowerCase()) {
-                matchScore += 40;
-              }
-
-              // Score for proximity to last seen location
-              if (lostPet.latitude && lostPet.longitude) {
-                const distanceFromLastSeen = calculateDistance(
-                  lostPet.latitude,
-                  lostPet.longitude,
-                  spotted.latitude,
-                  spotted.longitude
-                );
-                
-                if (distanceFromLastSeen <= 1) matchScore += 30;
-                else if (distanceFromLastSeen <= 3) matchScore += 20;
-                else if (distanceFromLastSeen <= 5) matchScore += 10;
-              }
-
-              // Score for time proximity
-              const lostDate = new Date(lostPet.lastSeenDate || lostPet.createdAt);
-              const spottedDate = new Date(spotted.timestamp || spotted.createdAt);
-              const daysDiff = Math.abs((spottedDate.getTime() - lostDate.getTime()) / (1000 * 60 * 60 * 24));
-              
-              if (daysDiff <= 1) matchScore += 20;
-              else if (daysDiff <= 3) matchScore += 15;
-              else if (daysDiff <= 7) matchScore += 10;
-
-              // Score for breed match if available
-              if (lostPet.breed && spotted.additionalInfo?.toLowerCase().includes(lostPet.breed.toLowerCase())) {
-                matchScore += 10;
-              }
-
-              // Only create alert if match score is 75% or higher
-              if (matchScore >= 75) {
-                let locationName = `${spotted.latitude.toFixed(4)}, ${spotted.longitude.toFixed(4)}`;
-                try {
-                  const [geocoded] = await Location.reverseGeocodeAsync({
-                    latitude: spotted.latitude,
-                    longitude: spotted.longitude,
-                  });
-                  if (geocoded) {
-                    const parts = [];
-                    if (geocoded.street) parts.push(geocoded.street);
-                    if (geocoded.city) parts.push(geocoded.city);
-                    if (parts.length > 0) locationName = parts.join(', ');
-                  }
-                } catch {
-                  // Use coordinates as fallback
-                }
-
-                nearbyAlerts.push({
-                  id: `match-${spotted._id}-${lostPet._id}`,
-                  type: matchScore >= 90 ? 'high-match' : 'moderate-match',
-                  animalType: spotted.animalType || 'animal',
-                  location: locationName,
-                  distance: Math.round(distance * 10) / 10,
-                  timeAgo: getTimeAgo(spotted.timestamp || spotted.createdAt),
-                  latitude: spotted.latitude,
-                  longitude: spotted.longitude,
-                  matchScore: Math.round(matchScore),
-                  matchedPetName: lostPet.petName,
-                  matchedPetId: lostPet._id,
-                });
-              }
-            }
           }
         }
 

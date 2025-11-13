@@ -76,6 +76,8 @@ setTimeout(() => {
 // Import models
 const AnimalReport = require('./models/AnimalReport');
 const User = require('./models/User');
+const Match = require('./models/Match');
+const mlService = require('./ml-service');
 
 // Routes
 
@@ -333,7 +335,7 @@ app.post('/api/reports', async (req, res) => {
       });
     }
 
-    // Create new report
+    // Create new report, ensure reportedBy is set
     const newReport = new AnimalReport({
       latitude,
       longitude,
@@ -344,7 +346,10 @@ app.post('/api/reports', async (req, res) => {
       photos,
       additionalInfo,
       timestamp: timestamp || new Date(),
+      reportedBy: req.body.reportedBy || 'anonymous',
     });
+
+    console.log('Creating report with reportedBy:', req.body.reportedBy);
 
     const savedReport = await newReport.save();
 
@@ -557,6 +562,222 @@ function calculateDistance(lat1, lon1, lat2, lon2) {
 function toRad(degrees) {
   return degrees * (Math.PI / 180);
 }
+
+// ============ ML MATCHING ENDPOINTS ============
+
+// Initialize ML model on server start
+mlService.initializeModel().catch(err => {
+  console.error('Failed to initialize ML model:', err);
+  console.warn('ML matching will not be available');
+});
+
+// Process matches for a newly spotted animal report
+app.post('/api/matches/process/:reportId', async (req, res) => {
+  try {
+    const { reportId } = req.params;
+    console.log('========================================');
+    console.log('Processing ML matches for report:', reportId);
+    
+    // Get the spotted report
+    const spottedReport = await AnimalReport.findById(reportId);
+    if (!spottedReport) {
+      console.log('ERROR: Spotted report not found');
+      return res.status(404).json({
+        success: false,
+        message: 'Spotted report not found',
+      });
+    }
+
+    console.log('Spotted report found:', {
+      id: spottedReport._id,
+      type: spottedReport.reportType,
+      animalType: spottedReport.animalType,
+      photos: spottedReport.photos?.length || 0,
+    });
+
+    // Only process spotted-on-streets reports
+    if (spottedReport.reportType !== 'spotted-on-streets') {
+      console.log('ERROR: Not a spotted-on-streets report');
+      return res.status(400).json({
+        success: false,
+        message: 'Only spotted-on-streets reports can be processed for matching',
+      });
+    }
+
+    // Get all lost-from-home reports
+    const lostPets = await AnimalReport.find({ reportType: 'lost-from-home' });
+    console.log(`Found ${lostPets.length} lost pet reports to compare`);
+    
+    if (lostPets.length === 0) {
+      console.log('No lost pets to compare');
+      return res.json({
+        success: true,
+        message: 'No lost pets to compare',
+        matches: [],
+      });
+    }
+
+    console.log('Starting ML matching...');
+    // Find matches using ML
+    const matches = await mlService.findMatches(spottedReport.toObject(), lostPets.map(p => p.toObject()), 75);
+    console.log(`ML matching complete. Found ${matches.length} matches above threshold`);
+    
+    // Save matches to database
+    const savedMatches = [];
+    for (const match of matches) {
+      try {
+        console.log(`Saving match: score=${match.matchScore}%, pet=${match.lostPetName}, owner=${match.ownerId}`);
+        
+        // Check if match already exists
+        const existing = await Match.findOne({
+          spottedReportId: match.spottedReportId,
+          lostPetId: match.lostPetId,
+        });
+
+        if (!existing) {
+          const newMatch = new Match({
+            spottedReportId: match.spottedReportId,
+            lostPetId: match.lostPetId,
+            ownerId: match.ownerId,
+            matchScore: match.matchScore,
+            visualSimilarity: match.visualSimilarity,
+            status: 'pending',
+            notified: false,
+          });
+          
+          const saved = await newMatch.save();
+          savedMatches.push(saved);
+          console.log(`Match saved with ID: ${saved._id}`);
+        } else {
+          console.log('Match already exists, skipping');
+        }
+      } catch (error) {
+        console.error('Error saving match:', error);
+        // Continue with other matches
+      }
+    }
+
+    console.log(`Saved ${savedMatches.length} new matches to database`);
+    console.log('========================================');
+    
+    res.json({
+      success: true,
+      message: `Found ${matches.length} matches, saved ${savedMatches.length} new matches`,
+      matches: savedMatches,
+    });
+  } catch (error) {
+    console.error('Error processing matches:', error);
+    console.error('Stack trace:', error.stack);
+    res.status(500).json({
+      success: false,
+      message: 'Error processing matches',
+      error: error.message,
+    });
+  }
+});
+
+// Get matches for a specific user (for inbox/notifications)
+app.get('/api/matches/user/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { status } = req.query;
+
+    console.log(`Fetching matches for user: ${userId}`);
+
+    const query = { ownerId: userId };
+    if (status) {
+      query.status = status;
+    }
+
+    const matches = await Match.find(query)
+      .populate('spottedReportId')
+      .populate('lostPetId')
+      .sort({ createdAt: -1 })
+      .limit(50);
+
+    console.log(`Found ${matches.length} matches for user ${userId}`);
+
+    res.json({
+      success: true,
+      data: matches,
+    });
+  } catch (error) {
+    console.error('Error fetching user matches:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching matches',
+      error: error.message,
+    });
+  }
+});
+
+// Update match status
+app.patch('/api/matches/:matchId', async (req, res) => {
+  try {
+    const { matchId } = req.params;
+    const { status } = req.body;
+
+    if (!['pending', 'viewed', 'confirmed', 'dismissed'].includes(status)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid status value',
+      });
+    }
+
+    const match = await Match.findByIdAndUpdate(
+      matchId,
+      { status },
+      { new: true }
+    );
+
+    if (!match) {
+      return res.status(404).json({
+        success: false,
+        message: 'Match not found',
+      });
+    }
+
+    res.json({
+      success: true,
+      data: match,
+    });
+  } catch (error) {
+    console.error('Error updating match:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error updating match',
+      error: error.message,
+    });
+  }
+});
+
+// Compare two specific images (for testing)
+app.post('/api/matches/compare', async (req, res) => {
+  try {
+    const { image1, image2 } = req.body;
+
+    if (!image1 || !image2) {
+      return res.status(400).json({
+        success: false,
+        message: 'Both image1 and image2 are required',
+      });
+    }
+
+    const matchScore = await mlService.compareImages(image1, image2);
+
+    res.json({
+      success: true,
+      matchScore,
+    });
+  } catch (error) {
+    console.error('Error comparing images:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error comparing images',
+      error: error.message,
+    });
+  }
+});
 
 // Start server
 // Listen on 0.0.0.0 to accept connections from all network interfaces (container / host / cloud dyno)

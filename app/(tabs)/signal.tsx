@@ -2,6 +2,7 @@ import TopBar from '@/components/TopBar';
 import { API_ENDPOINTS } from '@/constants/api';
 import { useUser } from '@clerk/clerk-expo';
 import { Ionicons } from '@expo/vector-icons';
+import * as FileSystem from 'expo-file-system/legacy';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
 import { useRouter } from 'expo-router';
@@ -15,6 +16,7 @@ interface AnimalMarker {
     latitude: number;
     longitude: number;
   };
+  reportedBy?: string; // User ID of the reporter
   details?: {
     time: string;
     animalType: string;
@@ -100,15 +102,33 @@ export default function Signal() {
         if (response.ok) {
           const data = await response.json();
           if (data.success && data.data) {
+            console.log(`Current user ID: ${user?.id}`);
+            console.log(`Total reports from server: ${data.data.length}`);
+            
             // Map all reports and preserve server-provided reportType
             const loadedMarkers: AnimalMarker[] = data.data
               .filter((report: any) => typeof report.latitude === 'number' && typeof report.longitude === 'number')
+              .filter((report: any) => {
+                // Show all lost pet reports (blue markers) to everyone
+                if (report.reportType === 'lost-from-home') {
+                  console.log(`Lost pet report ${report._id} - showing to all users`);
+                  return true;
+                }
+                // Only show spotted reports (green markers) to the user who created them
+                if (report.reportType === 'spotted-on-streets') {
+                  const shouldShow = report.reportedBy === user?.id;
+                  console.log(`Spotted report ${report._id} - reportedBy: ${report.reportedBy}, current user: ${user?.id}, showing: ${shouldShow}`);
+                  return shouldShow;
+                }
+                return true;
+              })
               .map((report: any) => ({
                 id: report._id,
                 coordinate: {
                   latitude: report.latitude,
                   longitude: report.longitude,
                 },
+                reportedBy: report.reportedBy,
                 details: {
                   time: report.time ?? report.lastSeenDate ?? '',
                   animalType: report.animalType ?? 'PET',
@@ -130,7 +150,7 @@ export default function Signal() {
                 },
               }));
             setMarkers(loadedMarkers);
-            console.log(`Loaded ${loadedMarkers.length} reports from database`);
+            console.log(`Loaded ${loadedMarkers.length} visible reports (after filtering)`);
           }
         }
       } catch (error) {
@@ -138,7 +158,7 @@ export default function Signal() {
         // Don't show alert here, fail silently to not interrupt user experience
       }
     })();
-  }, []);
+  }, [user?.id]);
 
   const handleMapPress = (event: any) => {
     // Always place a marker and open the report form on map tap
@@ -226,21 +246,41 @@ export default function Signal() {
       return;
     }
 
-    const reportData = {
-      latitude: currentMarker.latitude,
-      longitude: currentMarker.longitude,
-      time: selectedTime,
-      animalType,
-      direction,
-      injured,
-      photos,
-      additionalInfo,
-      reportType,
-      timestamp: new Date().toISOString(),
-      reportedBy: user?.id || 'anonymous', // Add user ID to identify reporter
-    };
-
     try {
+      // Convert photos to base64 for ML processing
+      console.log('Converting photos to base64...');
+      console.log('Current user ID:', user?.id);
+      const base64Photos = await Promise.all(
+        photos.map(async (uri) => {
+          try {
+            const base64 = await FileSystem.readAsStringAsync(uri, {
+              encoding: 'base64',
+            });
+            return `data:image/jpeg;base64,${base64}`;
+          } catch (error) {
+            console.error('Error converting photo to base64:', error);
+            return uri; // Fallback to original URI
+          }
+        })
+      );
+      console.log(`Converted ${base64Photos.length} photos to base64`);
+
+      const reportData = {
+        latitude: currentMarker.latitude,
+        longitude: currentMarker.longitude,
+        time: selectedTime,
+        animalType,
+        direction,
+        injured,
+        photos: base64Photos, // Use base64 encoded photos
+        additionalInfo,
+        reportType,
+        timestamp: new Date().toISOString(),
+        reportedBy: user?.id || 'anonymous', // Add user ID to identify reporter
+      };
+      
+      console.log('Submitting report with reportedBy:', reportData.reportedBy);
+
       const response = await fetch(API_ENDPOINTS.REPORTS, {
         method: 'POST',
         headers: {
@@ -253,9 +293,13 @@ export default function Signal() {
         throw new Error('Failed to submit report');
       }
 
+      const result = await response.json();
+      const reportId = result.data?._id || result.id;
+
       const newMarker: AnimalMarker = {
-        id: Date.now().toString(),
+        id: reportId || Date.now().toString(),
         coordinate: currentMarker,
+        reportedBy: user?.id || 'anonymous',
         details: {
           time: selectedTime,
           animalType,
@@ -268,6 +312,24 @@ export default function Signal() {
       };
 
       setMarkers([...markers, newMarker]);
+
+      // Trigger ML matching for spotted animals
+      if (reportType === 'spotted-on-streets' && reportId) {
+        console.log('Triggering ML matching for report:', reportId);
+        console.log('ML endpoint:', `${API_ENDPOINTS.MATCHES}/process/${reportId}`);
+        try {
+          // Fire and forget - don't wait for ML processing to complete
+          const mlResponse = await fetch(`${API_ENDPOINTS.MATCHES}/process/${reportId}`, {
+            method: 'POST',
+          });
+          console.log('ML matching response status:', mlResponse.status);
+          const mlResult = await mlResponse.json();
+          console.log('ML matching result:', mlResult);
+        } catch (err) {
+          console.error('ML matching error:', err);
+          // Don't show error to user - ML matching is a background process
+        }
+      }
       
       // Reset form
       setShowModal(false);

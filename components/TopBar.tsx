@@ -1,6 +1,5 @@
 import { useAuth } from '@clerk/clerk-expo';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { Image, Modal, Platform, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
@@ -11,7 +10,6 @@ type Props = {
 };
 
 export default function TopBar({ title = 'StraySignal', onBack, showRightDots = true }: Props) {
-  const router = useRouter();
   const { signOut } = useAuth();
   const [showMenu, setShowMenu] = useState(false);
   const logo = require('../assets/logos/blue-logo.png');

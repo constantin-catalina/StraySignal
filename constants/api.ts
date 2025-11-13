@@ -38,6 +38,7 @@ export const API_ENDPOINTS = {
   REPORTS_NEARBY: `${API_BASE_URL}/reports/nearby`,
   USERS: `${API_BASE_URL}/users`,
   HEALTH: `${API_BASE_URL}/health`,
+  MATCHES: `${API_BASE_URL}/matches`,
 };
 
 // Simple preflight ping helper (optional usage before first data load)

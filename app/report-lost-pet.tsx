@@ -3,6 +3,7 @@ import { API_ENDPOINTS } from '@/constants/api';
 import { useUser } from '@clerk/clerk-expo';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import * as FileSystem from 'expo-file-system/legacy';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
 import { useRouter } from 'expo-router';
@@ -159,7 +160,8 @@ export default function ReportLostPet() {
     try {
       Alert.alert('Uploading', 'Please wait while we submit your report...');
       
-      // Convert images to base64 if needed
+      // Convert images to base64 for ML processing
+      console.log('Converting photos to base64...');
       const processedPhotos = await Promise.all(
         photos.map(async (uri) => {
           // If it's already a base64 string, return it
@@ -168,18 +170,12 @@ export default function ReportLostPet() {
           }
           // For local URIs, read and convert to base64
           try {
-            const response = await fetch(uri);
-            const blob = await response.blob();
-            return new Promise<string>((resolve, reject) => {
-              const reader = new FileReader();
-              reader.onloadend = () => {
-                const result = reader.result as string;
-                console.log(`Image ${photos.indexOf(uri) + 1} size:`, result.length);
-                resolve(result);
-              };
-              reader.onerror = reject;
-              reader.readAsDataURL(blob);
+            const base64 = await FileSystem.readAsStringAsync(uri, {
+              encoding: 'base64',
             });
+            const base64String = `data:image/jpeg;base64,${base64}`;
+            console.log(`Image ${photos.indexOf(uri) + 1} converted (size: ${base64String.length})`);
+            return base64String;
           } catch (error) {
             console.error('Error converting image:', error);
             return uri; // Return original URI if conversion fails
