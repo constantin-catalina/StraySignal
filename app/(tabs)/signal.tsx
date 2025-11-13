@@ -35,6 +35,7 @@ interface AnimalMarker {
     distinctiveMarks?: string;
     createdAt?: string;
     timestamp?: string;
+    ownerShowsPhone?: boolean; // Whether the owner wants to show their phone number
   };
 }
 
@@ -147,6 +148,7 @@ export default function Signal() {
                   distinctiveMarks: report.distinctiveMarks,
                   createdAt: report.createdAt,
                   timestamp: report.timestamp || report.createdAt,
+                  ownerShowsPhone: report.ownerShowsPhone,
                 },
               }));
             setMarkers(loadedMarkers);
@@ -601,6 +603,7 @@ export default function Signal() {
           setSelectedLostMarker(null);
         }}
         marker={selectedLostMarker}
+        currentUserId={user?.id}
       />
       <SpottedDetailModal
         visible={showSpottedModal}
@@ -651,10 +654,12 @@ interface LostPetDetailModalProps {
   visible: boolean;
   onClose: () => void;
   marker: AnimalMarker | null;
+  currentUserId?: string;
 }
 
-const LostPetDetailModal: React.FC<LostPetDetailModalProps> = ({ visible, onClose, marker }) => {
+const LostPetDetailModal: React.FC<LostPetDetailModalProps> = ({ visible, onClose, marker, currentUserId }) => {
   const lost = marker?.details;
+  const isOwnReport = marker?.reportedBy === currentUserId;
   // Only render when the marker is for a lost pet; otherwise, this modal won't be shown
   if (!visible) return null;
   return (
@@ -721,18 +726,22 @@ const LostPetDetailModal: React.FC<LostPetDetailModalProps> = ({ visible, onClos
                 <Text style={styles.detailValue}>{lost.additionalInfo}</Text>
               </View>
             ) : null}
-            {/* CONTACT */}
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>CONTACT:</Text>
-              <View style={styles.contactButtons}>
-                <TouchableOpacity style={styles.contactButton}>
-                  <Text style={styles.contactButtonText}>CHAT with owner</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.contactButton}>
-                  <Text style={styles.contactButtonText}>CALL owner</Text>
-                </TouchableOpacity>
+            {/* CONTACT - only show if not the owner */}
+            {!isOwnReport && (
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>CONTACT:</Text>
+                <View style={styles.contactButtons}>
+                  <TouchableOpacity style={styles.contactButton}>
+                    <Text style={styles.contactButtonText}>CHAT with owner</Text>
+                  </TouchableOpacity>
+                  {lost?.ownerShowsPhone && (
+                    <TouchableOpacity style={styles.contactButton}>
+                      <Text style={styles.contactButtonText}>CALL owner</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
               </View>
-            </View>
+            )}
             {/* PHOTO GALLERY */}
             <Text style={styles.detailLabel}>PHOTO GALLERY</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.photoGallery}>

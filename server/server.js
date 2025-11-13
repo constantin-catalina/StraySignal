@@ -250,10 +250,29 @@ app.put('/api/users/:clerkId', async (req, res) => {
 app.get('/api/reports', async (req, res) => {
   try {
     const reports = await AnimalReport.find().sort({ createdAt: -1 });
+    
+    // For lost-from-home reports, include the owner's phone visibility preference
+    const enrichedReports = await Promise.all(
+      reports.map(async (report) => {
+        const reportObj = report.toObject();
+        if (report.reportType === 'lost-from-home' && report.reportedBy) {
+          try {
+            const owner = await User.findOne({ clerkId: report.reportedBy });
+            if (owner) {
+              reportObj.ownerShowsPhone = owner.showPhoneNumber;
+            }
+          } catch (err) {
+            console.error('Error fetching owner data:', err);
+          }
+        }
+        return reportObj;
+      })
+    );
+    
     res.json({
       success: true,
-      count: reports.length,
-      data: reports,
+      count: enrichedReports.length,
+      data: enrichedReports,
     });
   } catch (error) {
     console.error('Error fetching reports:', error);
@@ -450,9 +469,23 @@ app.get('/api/reports/:id', async (req, res) => {
       });
     }
 
+    const reportObj = report.toObject();
+    
+    // For lost-from-home reports, include the owner's phone visibility preference
+    if (report.reportType === 'lost-from-home' && report.reportedBy) {
+      try {
+        const owner = await User.findOne({ clerkId: report.reportedBy });
+        if (owner) {
+          reportObj.ownerShowsPhone = owner.showPhoneNumber;
+        }
+      } catch (err) {
+        console.error('Error fetching owner data:', err);
+      }
+    }
+
     res.json({
       success: true,
-      data: report,
+      data: reportObj,
     });
   } catch (error) {
     console.error('Error fetching report:', error);

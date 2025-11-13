@@ -78,7 +78,15 @@ export default function Inbox() {
                   key={alert.id}
                   style={styles.alertCard}
                   onPress={() => {
-                    router.push('/signal');
+                    router.push({
+                      pathname: '/alert-details',
+                      params: {
+                        alertId: alert.reportId || alert.id, // Use reportId if available (for matches), otherwise use id
+                        alertLat: alert.latitude.toString(),
+                        alertLng: alert.longitude.toString(),
+                        alertType: alert.type,
+                      }
+                    });
                   }}
                   activeOpacity={0.8}
                 >

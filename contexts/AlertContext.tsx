@@ -16,6 +16,7 @@ interface InjuredAnimalAlert {
   matchScore?: number;
   matchedPetName?: string;
   matchedPetId?: string;
+  reportId?: string; // The actual report ID for fetching full details
 }
 
 interface AlertContextType {
@@ -158,6 +159,7 @@ export const AlertProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                   matchScore: match.matchScore,
                   matchedPetName: match.lostPetId?.petName,
                   matchedPetId: match.lostPetId?._id,
+                  reportId: spottedReport._id, // Add the actual report ID for fetching details
                 });
               }
             }
