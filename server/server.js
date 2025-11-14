@@ -77,9 +77,88 @@ setTimeout(() => {
 const AnimalReport = require('./models/AnimalReport');
 const User = require('./models/User');
 const Match = require('./models/Match');
+const Conversation = require('./models/Conversation');
+const Message = require('./models/Message');
 const mlService = require('./ml-service');
 
 // Routes
+
+// ============ CHAT REST ENDPOINTS ============
+// Open or create a conversation between two users
+app.post('/api/chat/open', async (req, res) => {
+  try {
+    const { userId, peerId } = req.body;
+    if (!userId || !peerId || userId === peerId) {
+      return res.status(400).json({ success: false, message: 'Invalid user IDs' });
+    }
+    const key = [userId, peerId].sort().join('#');
+    let convo = await Conversation.findOne({ key });
+    if (!convo) {
+      convo = await Conversation.create({ participants: [userId, peerId], key });
+    }
+    res.json({ success: true, data: { conversationId: convo._id } });
+  } catch (error) {
+    console.error('Error opening conversation:', error);
+    res.status(500).json({ success: false, message: 'Error opening conversation', error: error.message });
+  }
+});
+
+// List conversations for a user
+app.get('/api/chat/conversations', async (req, res) => {
+  try {
+    const { userId } = req.query;
+    if (!userId) return res.status(400).json({ success: false, message: 'userId required' });
+    const convos = await Conversation.find({ participants: userId }).sort({ lastMessageAt: -1 }).limit(100);
+    const result = await Promise.all(convos.map(async c => {
+      const peerId = c.participants.find(p => p !== userId);
+      const peer = await User.findOne({ clerkId: peerId });
+      return {
+        _id: c._id,
+        participants: c.participants,
+        peer: peer ? { id: peer.clerkId, name: peer.name, profileImage: peer.profileImage } : { id: peerId },
+        lastMessageText: c.lastMessageText,
+        lastSenderId: c.lastSenderId,
+        lastMessageAt: c.lastMessageAt,
+      };
+    }));
+    res.json({ success: true, data: result });
+  } catch (error) {
+    console.error('Error listing conversations:', error);
+    res.status(500).json({ success: false, message: 'Error listing conversations', error: error.message });
+  }
+});
+
+// Get messages for a conversation
+app.get('/api/chat/messages/:conversationId', async (req, res) => {
+  try {
+    const { conversationId } = req.params;
+    const msgs = await Message.find({ conversationId }).sort({ createdAt: 1 }).limit(300);
+    res.json({ success: true, data: msgs });
+  } catch (error) {
+    console.error('Error fetching messages:', error);
+    res.status(500).json({ success: false, message: 'Error fetching messages', error: error.message });
+  }
+});
+
+// Post a new message
+app.post('/api/chat/messages', async (req, res) => {
+  try {
+    const { conversationId, senderId, text } = req.body;
+    if (!conversationId || !senderId || !text) {
+      return res.status(400).json({ success: false, message: 'conversationId, senderId, text required' });
+    }
+    const msg = await Message.create({ conversationId, senderId, text: String(text).trim() });
+    await Conversation.findByIdAndUpdate(conversationId, {
+      lastMessageText: text,
+      lastSenderId: senderId,
+      lastMessageAt: new Date(),
+    });
+    res.status(201).json({ success: true, data: msg });
+  } catch (error) {
+    console.error('Error sending message:', error);
+    res.status(500).json({ success: false, message: 'Error sending message', error: error.message });
+  }
+});
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
@@ -838,8 +917,191 @@ app.post('/api/matches/compare', async (req, res) => {
 
 // Start server
 // Listen on 0.0.0.0 to accept connections from all network interfaces (container / host / cloud dyno)
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Server listening on port ${PORT}`);
+// ============ SOCKET.IO REAL-TIME LAYER ============
+const http = require('http');
+const { Server } = require('socket.io');
+const httpServer = http.createServer(app);
+const io = new Server(httpServer, {
+  cors: { origin: '*', methods: ['GET', 'POST'] },
+});
+
+io.on('connection', (socket) => {
+  const userId = socket.handshake.query.userId;
+  console.log(`[Socket.IO] New connection: socketId=${socket.id}, userId=${userId}`);
+  if (userId) {
+    socket.join(`user:${userId}`);
+  }
+
+  // Helper to emit updated conversation to participants
+  async function emitConversationUpdate(convoId) {
+    const convo = await Conversation.findById(convoId);
+    if (!convo) return;
+    for (const pid of convo.participants) {
+      const peerId = convo.participants.find(p => p !== pid);
+      const peer = await User.findOne({ clerkId: peerId });
+      const unreadCount = await Message.countDocuments({
+        conversationId: convoId,
+        senderId: { $ne: pid },
+        readBy: { $ne: pid }
+      });
+      io.to(`user:${pid}`).emit('chat:conversation:update', {
+        _id: convo._id,
+        participants: convo.participants,
+        peer: peer ? { id: peer.clerkId, name: peer.name, profileImage: peer.profileImage } : { id: peerId },
+        lastMessageText: convo.lastMessageText,
+        lastSenderId: convo.lastSenderId,
+        lastMessageAt: convo.lastMessageAt,
+        lastMessageReadBy: convo.lastMessageReadBy || [],
+        unreadCount,
+      });
+    }
+  }
+
+  socket.on('chat:list', async () => {
+    if (!userId) return;
+    const convos = await Conversation.find({ participants: userId }).sort({ lastMessageAt: -1 }).limit(100);
+    const payload = await Promise.all(convos.map(async c => {
+      const peerId = c.participants.find(p => p !== userId);
+      const peer = await User.findOne({ clerkId: peerId });
+      const unreadCount = await Message.countDocuments({
+        conversationId: c._id,
+        senderId: { $ne: userId },
+        readBy: { $ne: userId }
+      });
+      return {
+        _id: c._id,
+        participants: c.participants,
+        peer: peer ? { id: peer.clerkId, name: peer.name, profileImage: peer.profileImage } : { id: peerId },
+        lastMessageText: c.lastMessageText,
+        lastSenderId: c.lastSenderId,
+        lastMessageAt: c.lastMessageAt,
+        lastMessageReadBy: c.lastMessageReadBy || [],
+        unreadCount,
+      };
+    }));
+    socket.emit('chat:conversations', payload);
+  });
+
+  socket.on('chat:open', async ({ peerId }) => {
+    if (!userId || !peerId || userId === peerId) return;
+    const key = [userId, peerId].sort().join('#');
+    let convo = await Conversation.findOne({ key });
+    if (!convo) convo = await Conversation.create({ participants: [userId, peerId], key });
+    socket.emit('chat:opened', { conversationId: convo._id });
+    emitConversationUpdate(convo._id);
+  });
+
+  socket.on('chat:join', async ({ conversationId }) => {
+    console.log(`[chat:join] userId=${userId} joining convo:${conversationId}`);
+    socket.join(`convo:${conversationId}`);
+    socket.emit('chat:joined', { conversationId });
+  });
+
+  socket.on('chat:history', async ({ conversationId }) => {
+    const msgs = await Message.find({ conversationId }).sort({ createdAt: 1 }).limit(300);
+    socket.emit('chat:history', { conversationId, messages: msgs });
+  });
+
+  socket.on('chat:send', async ({ conversationId, text }) => {
+    if (!userId || !conversationId || !text) return;
+    const trimmed = String(text).trim();
+    const msg = await Message.create({ conversationId, senderId: userId, text: trimmed, readBy: [userId] });
+    await Conversation.findByIdAndUpdate(conversationId, {
+      lastMessageText: msg.text,
+      lastSenderId: userId,
+      lastMessageAt: new Date(),
+      lastMessageReadBy: [userId],
+      [`readCursors.${userId}`]: msg._id.toString(),
+    });
+    io.to(`convo:${conversationId}`).emit('chat:message', msg);
+    emitConversationUpdate(conversationId);
+  });
+
+  // Typing indicator
+  socket.on('chat:typing', ({ conversationId, isTyping }) => {
+    if (!userId || !conversationId) return;
+    socket.to(`convo:${conversationId}`).emit('chat:typing', { conversationId, userId, isTyping: !!isTyping });
+  });
+
+  // Read receipts for a specific message
+  socket.on('chat:read', async ({ conversationId, messageId }) => {
+    if (!userId || !conversationId || !messageId) return;
+    const msg = await Message.findOne({ _id: messageId, conversationId });
+    if (!msg) return;
+    if (!msg.readBy.includes(userId)) {
+      msg.readBy.push(userId);
+      await msg.save();
+    }
+    // If it's the last message, update conversation read state
+    const convo = await Conversation.findById(conversationId);
+    if (convo && convo.lastMessageAt && msg._id.toString() === convo.readCursors.get(convo.lastSenderId) || msg.text === convo.lastMessageText) {
+      if (!convo.lastMessageReadBy.includes(userId)) {
+        convo.lastMessageReadBy.push(userId);
+        convo.readCursors.set(userId, msg._id.toString());
+        await convo.save();
+      }
+    }
+    // Always emit conversation update to refresh unread count
+    emitConversationUpdate(conversationId);
+    io.to(`convo:${conversationId}`).emit('chat:read', { conversationId, messageId, userId });
+  });
+
+  // Delete message
+  socket.on('chat:delete', async ({ conversationId, messageId }) => {
+    try {
+      console.log(`[chat:delete] userId=${userId}, conversationId=${conversationId}, messageId=${messageId}`);
+      if (!userId || !conversationId || !messageId) {
+        console.log('[chat:delete] Missing required fields');
+        return;
+      }
+      const msg = await Message.findOne({ _id: messageId, conversationId });
+      if (!msg) {
+        console.log('[chat:delete] Message not found');
+        return;
+      }
+      if (msg.senderId !== userId) {
+        console.log(`[chat:delete] Permission denied: msg.senderId=${msg.senderId} !== userId=${userId}`);
+        return;
+      }
+      
+      console.log(`[chat:delete] Deleting message ${messageId}`);
+      await Message.deleteOne({ _id: messageId });
+      console.log(`[chat:delete] Message deleted from database`);
+      
+      // Update conversation if this was the last message
+      const convo = await Conversation.findById(conversationId);
+      if (convo && convo.lastMessageText === msg.text) {
+        const lastMsg = await Message.findOne({ conversationId }).sort({ createdAt: -1 });
+        if (lastMsg) {
+          convo.lastMessageText = lastMsg.text;
+          convo.lastSenderId = lastMsg.senderId;
+          convo.lastMessageAt = lastMsg.createdAt;
+          convo.lastMessageReadBy = lastMsg.readBy || [];
+        } else {
+          convo.lastMessageText = '';
+          convo.lastSenderId = undefined;
+          convo.lastMessageAt = undefined;
+          convo.lastMessageReadBy = [];
+        }
+        await convo.save();
+        emitConversationUpdate(conversationId);
+      }
+      
+      console.log(`[chat:delete] Emitting chat:deleted event to room convo:${conversationId}`);
+      io.to(`convo:${conversationId}`).emit('chat:deleted', { conversationId, messageId });
+      console.log(`[chat:delete] Event emitted successfully`);
+    } catch (error) {
+      console.error('[chat:delete] Error:', error);
+    }
+  });
+
+  socket.on('disconnect', () => {
+    // cleanup if needed
+  });
+});
+
+httpServer.listen(PORT, '0.0.0.0', () => {
+  console.log(`Server + Socket.IO listening on port ${PORT}`);
 });
 
 // Global error safety nets

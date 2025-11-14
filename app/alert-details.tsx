@@ -1,3 +1,4 @@
+import { openOrCreateConversation } from '@/app/lib/chat';
 import TopBarSecondary from '@/components/TopBarSecondary';
 import { API_ENDPOINTS } from '@/constants/api';
 import { useUser } from '@clerk/clerk-expo';
@@ -41,6 +42,20 @@ export default function AlertDetails() {
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [checking, setChecking] = useState(false);
+
+  const handleChatWithUser = async () => {
+    if (!user?.id || !report?.reportedBy) {
+      Alert.alert('Error', 'Unable to start chat');
+      return;
+    }
+    try {
+      const conversationId = await openOrCreateConversation(user.id, report.reportedBy);
+      router.push(`/chat/${conversationId}`);
+    } catch (error) {
+      console.error('Error opening chat:', error);
+      Alert.alert('Error', 'Failed to open chat. Please try again.');
+    }
+  };
 
   const handleCheckSighting = async () => {
     if (!params.matchId) {
@@ -127,7 +142,7 @@ export default function AlertDetails() {
     };
 
     fetchReportDetails();
-  }, [params.alertId]);
+  }, [params.alertId, router]);
 
   if (loading) {
     return (
@@ -183,9 +198,10 @@ export default function AlertDetails() {
         onClose={() => setShowModal(false)}
         report={report}
         currentUserId={user?.id}
-        matchId={params.matchId as string | undefined}
+        matchId={params.matchId as string}
         onCheckSighting={handleCheckSighting}
         checking={checking}
+        onChatWithUser={handleChatWithUser}
       />
     </View>
   );
@@ -215,6 +231,7 @@ interface SpottedDetailModalProps {
   matchId?: string;
   onCheckSighting?: () => Promise<void>;
   checking?: boolean;
+  onChatWithUser?: () => void;
 }
 
 const SpottedDetailModal: React.FC<SpottedDetailModalProps> = ({ 
@@ -225,6 +242,7 @@ const SpottedDetailModal: React.FC<SpottedDetailModalProps> = ({
   matchId,
   onCheckSighting,
   checking = false,
+  onChatWithUser,
 }) => {
   const [resolvedAddress, setResolvedAddress] = useState<string | null>(null);
 
@@ -308,7 +326,7 @@ const SpottedDetailModal: React.FC<SpottedDetailModalProps> = ({
               <View style={styles.detailRow}>
                 <Text style={styles.detailLabel}>CONTACT:</Text>
                 <View style={styles.contactButtonsContainer}>
-                  <TouchableOpacity style={styles.modalContactButton}>
+                  <TouchableOpacity style={styles.modalContactButton} onPress={onChatWithUser}>
                     <Text style={styles.modalContactButtonText}>
                       {report.reportType === 'lost-from-home' ? 'CHAT with owner' : 'CHAT with reporter'}
                     </Text>

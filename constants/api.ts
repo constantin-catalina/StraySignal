@@ -39,6 +39,9 @@ export const API_ENDPOINTS = {
   USERS: `${API_BASE_URL}/users`,
   HEALTH: `${API_BASE_URL}/health`,
   MATCHES: `${API_BASE_URL}/matches`,
+  CHAT_OPEN: `${API_BASE_URL}/chat/open`,
+  CHAT_CONVERSATIONS: `${API_BASE_URL}/chat/conversations`,
+  CHAT_MESSAGES: `${API_BASE_URL}/chat/messages`,
 };
 
 // Simple preflight ping helper (optional usage before first data load)

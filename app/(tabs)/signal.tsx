@@ -1,3 +1,4 @@
+import { openOrCreateConversation } from '@/app/lib/chat';
 import TopBar from '@/components/TopBar';
 import { API_ENDPOINTS } from '@/constants/api';
 import { useUser } from '@clerk/clerk-expo';
@@ -604,6 +605,7 @@ export default function Signal() {
         }}
         marker={selectedLostMarker}
         currentUserId={user?.id}
+        router={router}
       />
       <SpottedDetailModal
         visible={showSpottedModal}
@@ -655,11 +657,28 @@ interface LostPetDetailModalProps {
   onClose: () => void;
   marker: AnimalMarker | null;
   currentUserId?: string;
+  router: any;
 }
 
-const LostPetDetailModal: React.FC<LostPetDetailModalProps> = ({ visible, onClose, marker, currentUserId }) => {
+const LostPetDetailModal: React.FC<LostPetDetailModalProps> = ({ visible, onClose, marker, currentUserId, router }) => {
   const lost = marker?.details;
   const isOwnReport = marker?.reportedBy === currentUserId;
+  
+  const handleChatWithOwner = async () => {
+    if (!currentUserId || !marker?.reportedBy) {
+      Alert.alert('Error', 'Unable to start chat');
+      return;
+    }
+    try {
+      const conversationId = await openOrCreateConversation(currentUserId, marker.reportedBy);
+      router.push(`/chat/${conversationId}`);
+      onClose();
+    } catch (error) {
+      console.error('Error opening chat:', error);
+      Alert.alert('Error', 'Failed to open chat. Please try again.');
+    }
+  };
+
   const handleCallOwner = async () => {
     if (!marker?.reportedBy || !lost?.ownerShowsPhone) return;
     try {
@@ -766,7 +785,7 @@ const LostPetDetailModal: React.FC<LostPetDetailModalProps> = ({ visible, onClos
               <View style={styles.detailRow}>
                 <Text style={styles.detailLabel}>CONTACT:</Text>
                 <View style={styles.contactButtons}>
-                  <TouchableOpacity style={styles.contactButton}>
+                  <TouchableOpacity style={styles.contactButton} onPress={handleChatWithOwner}>
                     <Text style={styles.contactButtonText}>CHAT with owner</Text>
                   </TouchableOpacity>
                   {lost?.ownerShowsPhone && (
