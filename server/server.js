@@ -915,6 +915,120 @@ app.post('/api/matches/compare', async (req, res) => {
   }
 });
 
+// Reprocess all existing spotted reports to regenerate matches with improved algorithm
+app.post('/api/matches/reprocess-all', async (req, res) => {
+  try {
+    console.log('========================================');
+    console.log('REPROCESSING ALL SPOTTED REPORTS');
+    console.log('========================================');
+    
+    // Get all spotted reports
+    const spottedReports = await AnimalReport.find({ reportType: 'spotted-on-streets' });
+    console.log(`Found ${spottedReports.length} spotted reports to reprocess`);
+    
+    if (spottedReports.length === 0) {
+      return res.json({
+        success: true,
+        message: 'No spotted reports to reprocess',
+        stats: { processed: 0, matchesCreated: 0, matchesUpdated: 0 },
+      });
+    }
+    
+    // Get all lost pets once (for efficiency)
+    const lostPets = await AnimalReport.find({ reportType: 'lost-from-home' });
+    console.log(`Found ${lostPets.length} lost pet reports to compare against`);
+    
+    if (lostPets.length === 0) {
+      return res.json({
+        success: true,
+        message: 'No lost pets to compare against',
+        stats: { processed: spottedReports.length, matchesCreated: 0, matchesUpdated: 0 },
+      });
+    }
+    
+    let totalProcessed = 0;
+    let totalMatchesCreated = 0;
+    let totalMatchesUpdated = 0;
+    
+    // Process each spotted report
+    for (const spottedReport of spottedReports) {
+      try {
+        console.log(`\nProcessing report ${spottedReport._id}...`);
+        
+        // Find matches using improved algorithm
+        const matches = await mlService.findMatches(
+          spottedReport.toObject(),
+          lostPets.map(p => p.toObject()),
+          75
+        );
+        
+        console.log(`Found ${matches.length} matches for this report`);
+        
+        // Update or create matches in database
+        for (const match of matches) {
+          const existing = await Match.findOne({
+            spottedReportId: match.spottedReportId,
+            lostPetId: match.lostPetId,
+          });
+          
+          if (existing) {
+            // Update existing match with new scores
+            await Match.findByIdAndUpdate(existing._id, {
+              matchScore: match.matchScore,
+              visualSimilarity: match.visualSimilarity,
+            });
+            totalMatchesUpdated++;
+            console.log(`Updated match ${existing._id}: ${match.matchScore}%`);
+          } else {
+            // Create new match
+            const newMatch = new Match({
+              spottedReportId: match.spottedReportId,
+              lostPetId: match.lostPetId,
+              ownerId: match.ownerId,
+              matchScore: match.matchScore,
+              visualSimilarity: match.visualSimilarity,
+              status: 'pending',
+              notified: false,
+            });
+            await newMatch.save();
+            totalMatchesCreated++;
+            console.log(`Created new match: ${match.matchScore}%`);
+          }
+        }
+        
+        totalProcessed++;
+      } catch (error) {
+        console.error(`Error processing report ${spottedReport._id}:`, error);
+        // Continue with next report
+      }
+    }
+    
+    console.log('\n========================================');
+    console.log('REPROCESSING COMPLETE');
+    console.log(`Processed: ${totalProcessed} reports`);
+    console.log(`Created: ${totalMatchesCreated} new matches`);
+    console.log(`Updated: ${totalMatchesUpdated} existing matches`);
+    console.log('========================================');
+    
+    res.json({
+      success: true,
+      message: 'Reprocessing complete',
+      stats: {
+        processed: totalProcessed,
+        matchesCreated: totalMatchesCreated,
+        matchesUpdated: totalMatchesUpdated,
+      },
+    });
+  } catch (error) {
+    console.error('Error reprocessing matches:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error reprocessing matches',
+      error: error.message,
+    });
+  }
+});
+
 // Start server
 // Listen on 0.0.0.0 to accept connections from all network interfaces (container / host / cloud dyno)
 // ============ SOCKET.IO REAL-TIME LAYER ============
