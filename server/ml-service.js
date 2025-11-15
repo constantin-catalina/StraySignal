@@ -1,6 +1,6 @@
-// Advanced ML Service for Pet Image Matching
-// Features: ResNet50, Triplet Loss fine-tuning support, Dynamic weight tuning
-// FIXED: Proper weight balancing, species filtering, better aggregation
+
+
+
 
 const tf = require('@tensorflow/tfjs-node');
 const fetch = require('node-fetch');
@@ -9,71 +9,73 @@ const { Buffer } = require('buffer');
 
 let baseModel = null;
 let customModel = null;
-let modelType = 'mobilenet'; // Track which model is loaded
+let modelType = 'mobilenet'; 
 
 let config = {
-  // Optimized weights for pet identification
+  
   weights: {
-    visual: 0.70,      // Visual features are primary signal
-    color: 0.20,       // Color helps but varies with lighting
-    consistency: 0.10  // Photo quality matters
+    visual: 0.70,      
+    color: 0.20,       
+    consistency: 0.10  
   },
-  // Metadata bonuses (location is critical for lost pets!)
+  
   metadataWeights: {
-    animalTypeMatch: 0.03,  // Species/breed match
+    animalTypeMatch: 0.03,  
     distance: {
-      veryClose: 0.05,  // <= 2km - very strong signal
-      close: 0.03,      // <= 5km - strong signal
-      near: 0.01,       // <= 10km - weak signal
-      far: -0.08        // > 20km - strong penalty
+      veryClose: 0.05,  
+      close: 0.03,      
+      near: 0.01,       
+      far: -0.08        
     },
     temporal: {
-      recent: 0.04,     // <= 3 days
-      week: 0.02,       // <= 7 days
-      old: -0.03        // > 30 days - gentle penalty (pets survive months)
+      recent: 0.04,     
+      week: 0.02,       
+      old: -0.03        
     }
   },
-  // Model configuration
+  
   useCustomModel: false,
   modelPath: null,
   embeddingDim: 128,
   
-  // Feature flags
-  useSpeciesFiltering: true,    // Filter by animal type first
-  useIndividualComparison: true, // Compare all photo pairs, not just means
+  
+  useSpeciesFiltering: true,    
+  useIndividualComparison: true, 
   minPhotosRequired: 1
 };
 
-// Initialize base model with proper fallback
+
 async function initializeBaseModel() {
   if (!baseModel) {
     console.log('Loading base model...');
-    
-    // Try MobileNet first (most reliable, no extra dependencies)
+
+    // First, try ResNet50 feature vector from TFHub (GCS mirror)
+    try {
+      const RESNET_URL = 'https://storage.googleapis.com/tfhub-tfjs-modules/google/imagenet/resnet_v2_50/feature_vector/5/model.json';
+      baseModel = await tf.loadGraphModel(RESNET_URL);
+      modelType = 'resnet';
+      console.log('ResNet50 feature vector loaded successfully (2048-d features)');
+      return baseModel;
+    } catch (e) {
+      console.warn('ResNet50 load failed, falling back to MobileNet:', e.message);
+    }
+
+    // Fallback: MobileNet V2
     try {
       const mobilenet = require('@tensorflow-models/mobilenet');
-      baseModel = await mobilenet.load({
-        version: 2,
-        alpha: 1.0,
-      });
+      baseModel = await mobilenet.load({ version: 2, alpha: 1.0 });
       modelType = 'mobilenet';
-      console.log('MobileNet loaded successfully (1024-dim features)');
-      console.log('Note: For better accuracy, install @tensorflow/tfjs-converter and use ResNet50');
+      console.log('MobileNet V2 loaded successfully (1024/1280-d features)');
       return baseModel;
     } catch (error) {
       console.error('Failed to load MobileNet:', error);
-      throw new Error('No model could be loaded. Install @tensorflow-models/mobilenet');
+      throw new Error('No model could be loaded. Ensure @tensorflow-models/mobilenet is installed');
     }
-    
-    // TODO: To use ResNet50, implement custom loading:
-    // 1. Download ResNet50 model files
-    // 2. Load with tf.loadGraphModel('file://./models/resnet50/model.json')
-    // 3. Update preprocessing for ResNet normalization
   }
   return baseModel;
 }
 
-// Initialize custom fine-tuned model (triplet loss / ArcFace)
+
 async function initializeCustomModel() {
   if (!customModel && config.useCustomModel && config.modelPath) {
     console.log('Loading custom fine-tuned model...');
@@ -89,7 +91,7 @@ async function initializeCustomModel() {
   return customModel;
 }
 
-// Update configuration
+
 function updateConfig(newConfig) {
   config = { ...config, ...newConfig };
   if (newConfig.weights) {
@@ -104,12 +106,12 @@ function updateConfig(newConfig) {
   console.log('Configuration updated');
 }
 
-// Get current configuration
+
 function getConfig() {
   return { ...config };
 }
 
-// Load and preprocess image
+
 async function loadImage(imageSource, targetSize = 224) {
   try {
     let imageBuffer;
@@ -132,12 +134,16 @@ async function loadImage(imageSource, targetSize = 224) {
       .expandDims(0)
       .toFloat();
     
-    // MobileNet normalization: scale to [-1, 1]
+    // Preprocessing per model
     if (modelType === 'mobilenet') {
+      // MobileNet expects inputs in [-1, 1]
       return tensor.div(127.5).sub(1);
+    } else if (modelType === 'resnet') {
+      // TFHub ResNet50 feature_vector expects [0,1]
+      return tensor.div(255.0);
     }
-    
-    // ResNet50 normalization: ImageNet stats
+
+    // Default: pass-through
     return tensor
       .div(255.0)
       .sub([0.485, 0.456, 0.406])
@@ -149,7 +155,7 @@ async function loadImage(imageSource, targetSize = 224) {
   }
 }
 
-// Extract features using base model or custom model
+
 async function extractFeatures(imageSource) {
   try {
     if (config.useCustomModel) {
@@ -166,14 +172,24 @@ async function extractFeatures(imageSource) {
     
     const model = await initializeBaseModel();
     const imageTensor = await loadImage(imageSource, 224);
-    
-    // Get embeddings from penultimate layer
-    const features = model.infer(imageTensor, true);
-    const featureArray = await features.array();
-    
+
+    let featTensor;
+    if (modelType === 'mobilenet' && typeof model.infer === 'function') {
+      // @tensorflow-models/mobilenet
+      featTensor = model.infer(imageTensor, true);
+    } else if (modelType === 'resnet' && typeof model.execute === 'function') {
+      // GraphModel from TFHub returns a single tensor [1, 2048]
+      featTensor = model.execute(imageTensor);
+    } else {
+      // Best-effort fallback
+      featTensor = typeof model.predict === 'function' ? model.predict(imageTensor) : model.execute(imageTensor);
+    }
+
+    const featureArray = await featTensor.array();
+
     imageTensor.dispose();
-    features.dispose();
-    
+    featTensor.dispose();
+
     return featureArray[0];
   } catch (error) {
     console.error('Error extracting features:', error);
@@ -181,7 +197,7 @@ async function extractFeatures(imageSource) {
   }
 }
 
-// Extract color histogram with distinctiveness weighting
+
 async function extractColorHistogram(imageSource) {
   try {
     let imageBuffer;
@@ -215,7 +231,7 @@ async function extractColorHistogram(imageSource) {
     const total = data.length / 3;
     const normalized = histogram.map(v => v / total);
     
-    // Calculate color distinctiveness (entropy)
+    
     let entropy = 0;
     for (const val of normalized) {
       if (val > 0) {
@@ -223,7 +239,7 @@ async function extractColorHistogram(imageSource) {
       }
     }
     const maxEntropy = Math.log2(bins * bins * bins);
-    const distinctiveness = entropy / maxEntropy; // 0 to 1
+    const distinctiveness = entropy / maxEntropy; 
     
     return { histogram: normalized, distinctiveness };
   } catch (error) {
@@ -232,7 +248,7 @@ async function extractColorHistogram(imageSource) {
   }
 }
 
-// Cosine similarity
+
 function cosineSimilarity(features1, features2) {
   if (features1.length !== features2.length) {
     throw new Error('Feature vectors must have the same length');
@@ -256,7 +272,7 @@ function cosineSimilarity(features1, features2) {
   return Math.max(-1, Math.min(1, dotProduct / (norm1 * norm2)));
 }
 
-// Euclidean distance
+
 function euclideanDistance(features1, features2) {
   if (features1.length !== features2.length) {
     throw new Error('Feature vectors must have the same length');
@@ -271,7 +287,7 @@ function euclideanDistance(features1, features2) {
   return Math.sqrt(sumSquaredDiff);
 }
 
-// Calculate similarity score
+
 function calculateSimilarity(features1, features2, useTripletLoss = false) {
   if (useTripletLoss) {
     const distance = euclideanDistance(features1, features2);
@@ -282,7 +298,7 @@ function calculateSimilarity(features1, features2, useTripletLoss = false) {
   }
 }
 
-// Histogram intersection
+
 function histogramIntersection(hist1, hist2) {
   if (!hist1 || !hist2 || hist1.length !== hist2.length) return 0;
   
@@ -293,14 +309,14 @@ function histogramIntersection(hist1, hist2) {
   return intersection;
 }
 
-// Better aggregation: keep individual embeddings for pairwise comparison
+
 function aggregateEmbeddingsAdvanced(embeddings) {
   if (!embeddings.length) return null;
   
   const length = embeddings[0].length;
   const mean = new Array(length).fill(0);
   
-  // Calculate mean
+  
   for (const emb of embeddings) {
     for (let i = 0; i < length; i++) {
       mean[i] += emb[i];
@@ -310,7 +326,7 @@ function aggregateEmbeddingsAdvanced(embeddings) {
     mean[i] /= embeddings.length;
   }
   
-  // Calculate consistency (how similar are photos to each other)
+  
   let consistencySum = 0;
   for (const emb of embeddings) {
     const sim = calculateSimilarity(emb, mean, config.useCustomModel);
@@ -320,12 +336,12 @@ function aggregateEmbeddingsAdvanced(embeddings) {
   
   return { 
     mean, 
-    individual: embeddings,  // Keep individual for pairwise comparison
+    individual: embeddings,  
     consistency 
   };
 }
 
-// Aggregate color histograms
+
 function aggregateHistograms(histData) {
   if (!histData.length) return null;
   
@@ -342,13 +358,13 @@ function aggregateHistograms(histData) {
     mean[i] /= histograms.length;
   }
   
-  // Average distinctiveness
+  
   const avgDistinctiveness = histData.reduce((sum, h) => sum + h.distinctiveness, 0) / histData.length;
   
   return { histogram: mean, distinctiveness: avgDistinctiveness };
 }
 
-// Build comprehensive descriptor
+
 async function buildReportDescriptor(report) {
   const photos = report.photos || [];
   if (!photos.length || photos.length < config.minPhotosRequired) return null;
@@ -384,7 +400,7 @@ async function buildReportDescriptor(report) {
   };
 }
 
-// Calculate geographic distance
+
 function calculateDistance(lat1, lon1, lat2, lon2) {
   const R = 6371;
   const dLat = (lat2 - lat1) * Math.PI / 180;
@@ -397,12 +413,12 @@ function calculateDistance(lat1, lon1, lat2, lon2) {
   return R * c;
 }
 
-// Normalize animal type for comparison
+
 function normalizeAnimalType(type) {
   if (!type) return null;
   const normalized = type.toLowerCase().trim();
   
-  // Map common variations
+  
   const mappings = {
     'dog': ['dog', 'dogs', 'puppy', 'puppies', 'canine'],
     'cat': ['cat', 'cats', 'kitten', 'kittens', 'feline'],
@@ -417,7 +433,7 @@ function normalizeAnimalType(type) {
   return normalized;
 }
 
-// Compare two images directly
+
 async function compareImages(spottedImageUrl, lostPetImageUrl) {
   try {
     console.log('Comparing images...');
@@ -434,9 +450,9 @@ async function compareImages(spottedImageUrl, lostPetImageUrl) {
     let colorScore = 0;
     if (spottedColor && lostColor) {
       colorScore = histogramIntersection(spottedColor.histogram, lostColor.histogram);
-      // Weight color by distinctiveness (distinctive colors matter more)
+      
       const colorWeight = (spottedColor.distinctiveness + lostColor.distinctiveness) / 2;
-      colorScore *= (0.5 + colorWeight * 0.5); // Scale between 0.5 and 1.0
+      colorScore *= (0.5 + colorWeight * 0.5); 
     }
     
     const combinedScore = 
@@ -453,14 +469,14 @@ async function compareImages(spottedImageUrl, lostPetImageUrl) {
   }
 }
 
-// Compare using all photo pairs (better than just means)
+
 function comparePairwise(spottedDesc, lostDesc) {
   const spottedEmbs = spottedDesc.individualEmbeddings;
   const lostEmbs = lostDesc.individualEmbeddings;
   
   const similarities = [];
   
-  // Compare each spotted photo with each lost photo
+  
   for (const spottedEmb of spottedEmbs) {
     for (const lostEmb of lostEmbs) {
       const sim = calculateSimilarity(spottedEmb, lostEmb, config.useCustomModel);
@@ -468,15 +484,15 @@ function comparePairwise(spottedDesc, lostDesc) {
     }
   }
   
-  // Use top-K average (ignore worst matches, focus on best)
+  
   similarities.sort((a, b) => b - a);
-  const topK = Math.min(3, Math.ceil(similarities.length * 0.3)); // Top 30% or 3 best
+  const topK = Math.min(3, Math.ceil(similarities.length * 0.3)); 
   const topAvg = similarities.slice(0, topK).reduce((sum, s) => sum + s, 0) / topK;
   
   return topAvg;
 }
 
-// Find matching lost pets
+
 async function findMatches(spottedReport, lostPets, threshold = 68) {
   try {
     console.log(`\n${'='.repeat(80)}`);
@@ -495,7 +511,7 @@ async function findMatches(spottedReport, lostPets, threshold = 68) {
     
     console.log(`[ML] Spotted: ${spottedDesc.photoCount} photos, consistency: ${(spottedDesc.embeddingConsistency * 100).toFixed(1)}%`);
     
-    // Filter by species first (if enabled)
+    
     let candidatePets = lostPets;
     if (config.useSpeciesFiltering && spottedReport.animalType) {
       const spottedType = normalizeAnimalType(spottedReport.animalType);
@@ -513,7 +529,7 @@ async function findMatches(spottedReport, lostPets, threshold = 68) {
         const lostDesc = await buildReportDescriptor(lostPet);
         if (!lostDesc) continue;
         
-        // Visual similarity: use pairwise if enabled, otherwise use means
+        
         let visualScore;
         if (config.useIndividualComparison && 
             spottedDesc.individualEmbeddings.length > 0 && 
@@ -527,32 +543,32 @@ async function findMatches(spottedReport, lostPets, threshold = 68) {
           );
         }
         
-        // Color similarity (weighted by distinctiveness)
+        
         let colorScore = 0;
         if (spottedDesc.colorHistogram && lostDesc.colorHistogram) {
           colorScore = histogramIntersection(spottedDesc.colorHistogram, lostDesc.colorHistogram);
-          // Distinctive colors matter more
+          
           const avgDistinct = (spottedDesc.colorDistinctiveness + lostDesc.colorDistinctiveness) / 2;
           colorScore *= (0.5 + avgDistinct * 0.5);
         }
         
-        // Consistency score
+        
         const consistencyScore = Math.min(
           spottedDesc.embeddingConsistency, 
           lostDesc.embeddingConsistency
         );
         
-        // Base score
+        
         let baseScore = 
           visualScore * config.weights.visual +
           colorScore * config.weights.color +
           consistencyScore * config.weights.consistency;
         
-        // Metadata adjustments
+        
         let metadataBonus = 0;
         const metadataDetails = [];
         
-        // Animal type (already filtered, but still give small bonus)
+        
         if (spottedReport.animalType && lostPet.animalType) {
           const spottedType = normalizeAnimalType(spottedReport.animalType);
           const lostType = normalizeAnimalType(lostPet.animalType);
@@ -562,7 +578,7 @@ async function findMatches(spottedReport, lostPets, threshold = 68) {
           }
         }
         
-        // Geographic proximity (CRITICAL for lost pets)
+        
         if (lostPet.latitude && lostPet.longitude && 
             spottedReport.latitude && spottedReport.longitude) {
           const distKm = calculateDistance(
@@ -587,7 +603,7 @@ async function findMatches(spottedReport, lostPets, threshold = 68) {
           }
         }
         
-        // Temporal proximity
+        
         const lostDate = new Date(lostPet.lastSeenDate || lostPet.createdAt);
         const spottedDate = new Date(spottedReport.timestamp || spottedReport.createdAt);
         const daysDiff = Math.abs((spottedDate.getTime() - lostDate.getTime()) / 86400000);
@@ -605,7 +621,7 @@ async function findMatches(spottedReport, lostPets, threshold = 68) {
           metadataDetails.push(`${daysDiff.toFixed(0)}d`);
         }
         
-        // Final score
+        
         let finalScore = baseScore + metadataBonus;
         finalScore = Math.max(0, Math.min(1, finalScore));
         const matchScore = Math.round(finalScore * 100);
@@ -660,7 +676,7 @@ async function findMatches(spottedReport, lostPets, threshold = 68) {
   }
 }
 
-// Preset configurations
+
 const presets = {
   highPrecision: {
     threshold: 75,
@@ -769,7 +785,7 @@ function analyzeMatchQuality(matches, feedback) {
   return stats;
 }
 
-// Train custom model with triplet loss
+
 async function trainTripletLossModel(trainingData, options = {}) {
   console.log('Training custom triplet loss model...');
   
@@ -782,14 +798,14 @@ async function trainTripletLossModel(trainingData, options = {}) {
   
   await initializeBaseModel();
   
-  // Create embedding model (proper architecture)
+  
   const input = tf.input({ shape: [224, 224, 3] });
   
-  // Feature extraction backbone (frozen base model weights)
-  // Note: This is a simplified version. In production, you'd:
-  // 1. Load base model weights
-  // 2. Create new embedding head
-  // 3. Freeze base layers
+  
+  
+  
+  
+  
   
   const embedding = tf.layers.dense({
     units: embeddingDim,
@@ -798,7 +814,7 @@ async function trainTripletLossModel(trainingData, options = {}) {
     kernelInitializer: 'glorotNormal'
   }).apply(input);
   
-  // L2 normalization
+  
   const normalized = tf.layers.lambda({
     outputShape: [embeddingDim],
     call: (inputs) => {

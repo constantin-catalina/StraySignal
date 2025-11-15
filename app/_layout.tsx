@@ -21,7 +21,6 @@ export default function RootLayout() {
         <AlertProvider>
           <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
 
-            {/* App shown only when signed in */}
             <SignedIn>
               <Stack screenOptions={{ headerShown: false }}>
                 <Stack.Screen name="(tabs)" />
@@ -29,7 +28,6 @@ export default function RootLayout() {
               </Stack>
             </SignedIn>
 
-            {/* Auth flow shown when signed out */}
             <SignedOut>
               <Stack screenOptions={{ headerShown: false }}>
                 <Stack.Screen name="index" />

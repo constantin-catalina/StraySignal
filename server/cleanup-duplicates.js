@@ -14,11 +14,11 @@ async function cleanupDuplicates() {
     await mongoose.connect(MONGODB_URI, options);
     console.log('Connected to MongoDB');
 
-    // Find all users
+    
     const users = await User.find({});
     console.log(`Found ${users.length} users`);
 
-    // Group by email
+    
     const emailMap = new Map();
     users.forEach(user => {
       if (!emailMap.has(user.email)) {
@@ -27,7 +27,7 @@ async function cleanupDuplicates() {
       emailMap.get(user.email).push(user);
     });
 
-    // Find duplicates
+    
     const duplicates = Array.from(emailMap.entries()).filter(([_, users]) => users.length > 1);
     
     console.log(`\nFound ${duplicates.length} duplicate emails:`);
@@ -38,7 +38,7 @@ async function cleanupDuplicates() {
         console.log(`  ${i + 1}. ClerkId: ${u.clerkId}, Name: ${u.name}, Created: ${u.createdAt}`);
       });
       
-      // Keep the most recently created one, delete others
+      
       dupeUsers.sort((a, b) => b.createdAt - a.createdAt);
       const toKeep = dupeUsers[0];
       const toDelete = dupeUsers.slice(1);

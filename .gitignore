@@ -44,3 +44,4 @@ app-example
 
 .env
 /server/.env
+/scripts/remove_comments.py

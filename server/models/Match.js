@@ -51,7 +51,7 @@ const matchSchema = new mongoose.Schema({
   },
 });
 
-// Compound index for efficient queries
+
 matchSchema.index({ ownerId: 1, createdAt: -1 });
 matchSchema.index({ spottedReportId: 1, lostPetId: 1 }, { unique: true });
 

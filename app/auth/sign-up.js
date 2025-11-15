@@ -43,7 +43,6 @@ export default function SignUp() {
   }, [password]);
 
 
-  // Create backend user once Clerk user info is loaded and signed in
   useEffect(() => {
     async function handleUserCreationAndRedirect() {
       if (userLoaded && userSignedIn && user && !hasCreatedUser.current) {
@@ -62,16 +61,13 @@ export default function SignUp() {
               shouldRedirect = true;
             } else {
               const errorData = await response.json();
-              // Only allow redirect if duplicate user error (already exists)
               if (errorData.error?.includes('E11000')) {
                 shouldRedirect = true;
               } else {
                 Alert.alert('Registration failed', 'Could not create user in backend.');
               }
             }
-            // Redirect to home after successful backend creation (email or social)
             if (shouldRedirect) {
-              // Wait briefly to ensure SignedIn stack is active
               setTimeout(() => {
                 router.replace('/(tabs)/home');
               }, 50);
@@ -92,7 +88,6 @@ export default function SignUp() {
       const { createdSessionId, setActive: setActiveOAuth } = await oauth.startOAuthFlow({ redirectUrl: redirectUri });
       if (createdSessionId) {
         await setActiveOAuth?.({ session: createdSessionId });
-        // Redirect will happen after backend user creation in useEffect
       }
     } catch (e) {
       console.warn(e);
@@ -106,7 +101,6 @@ export default function SignUp() {
     if (!canSubmit || !isLoaded) return;
     setLoading(true);
     try {
-      // Ensure no stale session (e.g., previously signed in with Facebook)
       if (userSignedIn) {
         await signOut();
       }
@@ -117,9 +111,7 @@ export default function SignUp() {
         firstName: name.trim(),
       });
       if (res.status === 'complete' && res.createdSessionId) {
-        // Keep the user signed in by setting active session
         await setActive?.({ session: res.createdSessionId });
-        // Backend creation + redirect handled in useEffect once user is signed in
       }
     } catch (e) {
       console.warn(e);

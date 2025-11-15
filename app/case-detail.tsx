@@ -71,7 +71,6 @@ export default function CaseDetail() {
     let mounted = true;
     const init = async () => {
       try {
-        // If we have case coordinates, center on them
         if (parsedCase?.latitude && parsedCase?.longitude) {
           if (!mounted) return;
           setRegion({
@@ -80,22 +79,18 @@ export default function CaseDetail() {
             latitudeDelta: 0.05,
             longitudeDelta: 0.05,
           });
-          // done
           return;
         }
 
-        // Otherwise center on current user location
         const { status } = await Location.requestForegroundPermissionsAsync();
         if (status !== 'granted') {
           if (!mounted) return;
-          // Default to a generic region if permission denied
           setRegion({
             latitude: 37.78825,
             longitude: -122.4324,
             latitudeDelta: 0.05,
             longitudeDelta: 0.05,
           });
-          // done
           return;
         }
 
@@ -107,7 +102,7 @@ export default function CaseDetail() {
           latitudeDelta: 0.05,
           longitudeDelta: 0.05,
         });
-  // done
+  
   } catch {
         if (!mounted) return;
         setRegion({
@@ -116,7 +111,7 @@ export default function CaseDetail() {
           latitudeDelta: 0.05,
           longitudeDelta: 0.05,
         });
-  // done
+  
       }
     };
     init();
@@ -125,9 +120,7 @@ export default function CaseDetail() {
     };
   }, [parsedCase]);
 
-  // Map tap should do nothing; modal opens only when pressing existing lost pet marker
   const handleMapPress = () => {
-    // intentionally empty to prevent opening modal on any map tap
   };
 
   const closeModal = () => {
@@ -142,12 +135,10 @@ export default function CaseDetail() {
         backgroundColor="#1E1F24"
       />
 
-      {/* Top Bar */}
       <View style={styles.topBarWrapper}>
         <TopBarSecondary onBack={() => router.back()} title="Case Detail" />
       </View>
 
-      {/* Map */}
       <View style={styles.mapContainer}>
         {region ? (
           <MapView
@@ -169,7 +160,6 @@ export default function CaseDetail() {
                 }}
               />
             ) : null}
-            {/* Removed temporary marker; we only show the original lost pet marker */}
           </MapView>
         ) : (
           <View style={styles.loadingOverlay}>
@@ -204,19 +194,16 @@ export default function CaseDetail() {
               </Text>
             </View>
             <ScrollView style={styles.detailsContainer} showsVerticalScrollIndicator={false}>
-              {/* Name */}
               <View style={styles.detailRow}>
                 <Text style={styles.detailLabel}>NAME:</Text>
                 <Text style={styles.detailValue}>{parsedCase?.petName}</Text>
               </View>
 
-              {/* Lost Location */}
               <View style={styles.detailRow}>
                 <Text style={styles.detailLabel}>LOST LOCATION:</Text>
                 <Text style={styles.detailValue}>{parsedCase?.lastSeenLocation}</Text>
               </View>
 
-              {/* Date */}
               <View style={styles.detailRow}>
                 <Text style={styles.detailLabel}>DATE:</Text>
                 <Text style={styles.detailValue}>
@@ -224,7 +211,6 @@ export default function CaseDetail() {
                 </Text>
               </View>
 
-              {/* Breed */}
               <View style={styles.detailRow}>
                 <Text style={styles.detailLabel}>BREED:</Text>
                 <Text style={styles.detailValue}>
@@ -234,7 +220,6 @@ export default function CaseDetail() {
                 </Text>
               </View>
 
-              {/* Distinctive Marks */}
               {parsedCase?.hasDistinctiveMarks && parsedCase?.distinctiveMarks && (
                 <View style={styles.detailRow}>
                   <Text style={styles.detailLabel}>DISTINCTIVE MARKS:</Text>
@@ -242,7 +227,6 @@ export default function CaseDetail() {
                 </View>
               )}
 
-              {/* Reward */}
               {parsedCase?.hasReward && (
                 <View style={styles.detailRow}>
                   <Text style={styles.detailLabel}>REWARD:</Text>
@@ -250,7 +234,6 @@ export default function CaseDetail() {
                 </View>
               )}
 
-              {/* Description */}
               {parsedCase?.additionalInfo && (
                 <View style={styles.detailRow}>
                   <Text style={styles.detailLabel}>DESCRIPTION:</Text>
@@ -258,7 +241,6 @@ export default function CaseDetail() {
                 </View>
               )}
 
-              {/* Photo Gallery */}
               <Text style={styles.detailLabel}>PHOTO GALLERY</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.photoGallery}>
                 {parsedCase?.photos && parsedCase.photos.map((uri, index) => (

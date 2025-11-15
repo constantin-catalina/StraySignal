@@ -7,7 +7,6 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import React, { useCallback, useState } from 'react';
 import { Image, ImageBackground, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
-// Per-user storage to avoid mixing data between different signed-in accounts
 const PROFILE_DATA_KEY_PREFIX = 'user_profile_data:';
 
 interface LostPetCase {
@@ -39,14 +38,12 @@ export default function Profile() {
   const [loading, setLoading] = useState(true);
   const [profileData, setProfileData] = useState<ProfileData>({});
 
-  // Prefer saved name from profileData (user can edit); fallback to Clerk
   const userName = profileData.name ||
                    user?.fullName ||
                    `${user?.firstName || ''} ${user?.lastName || ''}`.trim() ||
                    user?.emailAddresses?.[0]?.emailAddress?.split('@')[0] ||
                    'User';
   
-  // Prefer Clerk for email and avatar; use stored values only as fallback
   const userImage = user?.imageUrl || profileData.profileImage;
   const userEmail = user?.emailAddresses?.[0]?.emailAddress || profileData.email || 'Not provided';
   const userPhone = profileData.phone || '';
@@ -91,7 +88,6 @@ export default function Profile() {
       if (response.ok) {
         const data = await response.json();
         if (data.success && data.data) {
-          // Filter for lost-from-home reports owned by current user
           const lostCases = data.data.filter(
             (report: any) => report.reportType === 'lost-from-home' && report.reportedBy === user.id
           );
@@ -143,16 +139,13 @@ export default function Profile() {
       </View>
 
       <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-        {/* Header with Profile background */}
         <ImageBackground
           source={require('@/assets/backgrounds/Profile.png')}
           style={styles.header}
           resizeMode="cover"
         />
 
-        {/* Profile Content Card */}
         <View style={styles.profileCard}>
-          {/* Profile Picture */}
           <View style={styles.profilePictureContainer}>
             {userImage ? (
               <Image
@@ -166,7 +159,6 @@ export default function Profile() {
             )}
           </View>
 
-          {/* User Info */}
           <Text style={styles.userName}>{userName}</Text>
           {userLocation && (
             <View style={styles.locationContainer}>
@@ -175,7 +167,6 @@ export default function Profile() {
             </View>
           )}
 
-          {/* Edit Profile Button */}
           <TouchableOpacity 
             style={styles.editButton}
             onPress={() => router.push('/edit-profile')}
@@ -183,7 +174,6 @@ export default function Profile() {
             <Text style={styles.editButtonText}>Edit profile</Text>
           </TouchableOpacity>
 
-          {/* Contact Info Section */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>CONTACT INFO:</Text>
             {userPhone && <Text style={styles.infoText}>Phone number: {userPhone}</Text>}
@@ -191,7 +181,6 @@ export default function Profile() {
             {userPhone && <Text style={styles.infoText}>Show my phone number in lost pet cases: {showPhoneNumber ? 'YES' : 'NO'}</Text>}
           </View>
 
-          {/* My Lost Pet Cases Section */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>MY LOST PET CASES:</Text>
             {lostPetCases.length === 0 ? (
@@ -212,7 +201,6 @@ export default function Profile() {
             </TouchableOpacity>
           </View>
 
-          {/* Optional Utilities Section */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>OPTIONAL UTILITIES:</Text>
             <Text style={styles.infoText}>Radius preference: show alerts within {radiusPreference}km</Text>

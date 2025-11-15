@@ -1,4 +1,3 @@
-// app/(tabs)/_layout.tsx
 import BottomTabBar from '@/components/BottomTabBar';
 import { useUser } from '@clerk/clerk-expo';
 import { Redirect, Tabs } from 'expo-router';

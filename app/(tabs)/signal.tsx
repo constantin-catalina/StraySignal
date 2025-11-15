@@ -17,7 +17,7 @@ interface AnimalMarker {
     latitude: number;
     longitude: number;
   };
-  reportedBy?: string; // User ID of the reporter
+  reportedBy?: string;
   details?: {
     time: string;
     animalType: string;
@@ -26,17 +26,16 @@ interface AnimalMarker {
     photos: string[];
     additionalInfo: string;
     reportType: 'lost-from-home' | 'spotted-on-streets';
-    // Lost pet specific optional fields populated when reportType === 'lost-from-home'
     petName?: string;
     breed?: string;
     lastSeenLocation?: string;
-    lastSeenDate?: string; // ISO string for consistency on client
+    lastSeenDate?: string; 
     hasReward?: boolean;
     hasDistinctiveMarks?: boolean;
     distinctiveMarks?: string;
     createdAt?: string;
     timestamp?: string;
-    ownerShowsPhone?: boolean; // Whether the owner wants to show their phone number
+    ownerShowsPhone?: boolean; 
   };
 }
 
@@ -53,14 +52,11 @@ export default function Signal() {
   const [isReportMode, setIsReportMode] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [currentMarker, setCurrentMarker] = useState<{ latitude: number; longitude: number } | null>(null);
-  // Lost pet detail modal state (for existing blue markers)
   const [showLostModal, setShowLostModal] = useState(false);
   const [selectedLostMarker, setSelectedLostMarker] = useState<AnimalMarker | null>(null);
-  // Spotted detail modal state (for existing green markers)
   const [showSpottedModal, setShowSpottedModal] = useState(false);
   const [selectedSpottedMarker, setSelectedSpottedMarker] = useState<AnimalMarker | null>(null);
   
-  // Form state
   const [selectedTime, setSelectedTime] = useState('NOW');
   const [animalType, setAnimalType] = useState('DOG');
   const [direction, setDirection] = useState('');
@@ -71,7 +67,6 @@ export default function Signal() {
 
   useEffect(() => {
     (async () => {
-      // Request location permissions
       let { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
         Alert.alert(
@@ -81,7 +76,6 @@ export default function Signal() {
         return;
       }
 
-      // Get current location
       try {
         let location = await Location.getCurrentPositionAsync({
           accuracy: Location.Accuracy.High,
@@ -98,7 +92,6 @@ export default function Signal() {
         Alert.alert('Error', 'Could not fetch your location.');
       }
 
-      // Fetch existing reports from database (Atlas-backed server)
       try {
         const response = await fetch(API_ENDPOINTS.REPORTS);
         if (response.ok) {
@@ -107,16 +100,13 @@ export default function Signal() {
             console.log(`Current user ID: ${user?.id}`);
             console.log(`Total reports from server: ${data.data.length}`);
             
-            // Map all reports and preserve server-provided reportType
             const loadedMarkers: AnimalMarker[] = data.data
               .filter((report: any) => typeof report.latitude === 'number' && typeof report.longitude === 'number')
               .filter((report: any) => {
-                // Show all lost pet reports (blue markers) to everyone
                 if (report.reportType === 'lost-from-home') {
                   console.log(`Lost pet report ${report._id} - showing to all users`);
                   return true;
                 }
-                // Only show spotted reports (green markers) to the user who created them
                 if (report.reportType === 'spotted-on-streets') {
                   const shouldShow = report.reportedBy === user?.id;
                   console.log(`Spotted report ${report._id} - reportedBy: ${report.reportedBy}, current user: ${user?.id}, showing: ${shouldShow}`);
@@ -139,7 +129,6 @@ export default function Signal() {
                   photos: report.photos || [],
                   additionalInfo: report.additionalInfo ?? '',
                   reportType: (report.reportType as 'lost-from-home' | 'spotted-on-streets') || 'spotted-on-streets',
-                  // Lost pet case fields
                   petName: report.petName,
                   breed: report.breed,
                   lastSeenLocation: report.lastSeenLocation,
@@ -158,13 +147,11 @@ export default function Signal() {
         }
       } catch (error) {
         console.error('Error loading reports:', error);
-        // Don't show alert here, fail silently to not interrupt user experience
       }
     })();
   }, [user?.id]);
 
   const handleMapPress = (event: any) => {
-    // Always place a marker and open the report form on map tap
     const { latitude, longitude } = event.nativeEvent.coordinate;
     setCurrentMarker({ latitude, longitude });
     setShowModal(true);
@@ -172,7 +159,6 @@ export default function Signal() {
   };
 
   const pickImage = async () => {
-    // Show action sheet to choose between camera or gallery
     Alert.alert(
       'Add Photo',
       'Choose an option',
@@ -180,14 +166,12 @@ export default function Signal() {
         {
           text: 'Take Photo',
           onPress: async () => {
-            // Request camera permission
             const { status } = await ImagePicker.requestCameraPermissionsAsync();
             if (status !== 'granted') {
               Alert.alert('Permission Denied', 'We need camera permissions to take photos.');
               return;
             }
 
-            // Launch camera
             let result = await ImagePicker.launchCameraAsync({
               mediaTypes: ImagePicker.MediaTypeOptions.Images,
               quality: 0.8,
@@ -203,14 +187,12 @@ export default function Signal() {
         {
           text: 'Choose from Gallery',
           onPress: async () => {
-            // Request gallery permission
             const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
             if (status !== 'granted') {
               Alert.alert('Permission Denied', 'We need camera roll permissions to upload photos.');
               return;
             }
 
-            // Launch image picker
             let result = await ImagePicker.launchImageLibraryAsync({
               mediaTypes: ImagePicker.MediaTypeOptions.Images,
               allowsMultipleSelection: true,
@@ -250,7 +232,6 @@ export default function Signal() {
     }
 
     try {
-      // Convert photos to base64 for ML processing
       console.log('Converting photos to base64...');
       console.log('Current user ID:', user?.id);
       const base64Photos = await Promise.all(
@@ -262,7 +243,7 @@ export default function Signal() {
             return `data:image/jpeg;base64,${base64}`;
           } catch (error) {
             console.error('Error converting photo to base64:', error);
-            return uri; // Fallback to original URI
+            return uri; 
           }
         })
       );
@@ -275,11 +256,11 @@ export default function Signal() {
         animalType,
         direction,
         injured,
-        photos: base64Photos, // Use base64 encoded photos
+        photos: base64Photos,
         additionalInfo,
         reportType,
         timestamp: new Date().toISOString(),
-        reportedBy: user?.id || 'anonymous', // Add user ID to identify reporter
+        reportedBy: user?.id || 'anonymous', 
       };
       
       console.log('Submitting report with reportedBy:', reportData.reportedBy);
@@ -316,23 +297,19 @@ export default function Signal() {
 
       setMarkers([...markers, newMarker]);
 
-      // Trigger ML matching for spotted animals
       if (reportType === 'spotted-on-streets' && reportId) {
         console.log('Triggering ML matching for report:', reportId);
         console.log('ML endpoint:', `${API_ENDPOINTS.MATCHES}/process/${reportId}`);
         try {
-          // Fire and forget - don't wait for ML processing to complete
           const mlResponse = await fetch(`${API_ENDPOINTS.MATCHES}/process/${reportId}`, {
             method: 'POST',
           });
           await mlResponse.json();
         } catch (err) {
           console.error('ML matching error:', err);
-          // Don't show error to user - ML matching is a background process
         }
       }
       
-      // Reset form
       setShowModal(false);
       setCurrentMarker(null);
       setSelectedTime('NOW');
@@ -382,7 +359,6 @@ export default function Signal() {
 
   return (
     <View style={styles.container}>
-      {/* Full-screen Google Map */}
       <MapView
         style={styles.map}
         provider={PROVIDER_GOOGLE}
@@ -392,7 +368,6 @@ export default function Signal() {
         showsMyLocationButton={true}
         onPress={handleMapPress}
       >
-        {/* Display all reported markers with custom green pin */}
         {markers.map((marker) => (
           <Marker
             key={marker.id}
@@ -410,7 +385,6 @@ export default function Signal() {
           />
         ))}
         
-        {/* Temporary marker while in report mode */}
         {currentMarker && showModal && (
           <Marker 
             coordinate={currentMarker}
@@ -419,12 +393,10 @@ export default function Signal() {
         )}
       </MapView>
 
-      {/* TopBar overlaid on top of the map */}
       <View style={styles.topBarOverlay} pointerEvents="box-none">
         <TopBar onBack={() => router.back()} />
       </View>
 
-      {/* Current Location Button */}
       <TouchableOpacity
         style={styles.currentLocationButton}
         onPress={goToCurrentLocation}
@@ -433,7 +405,6 @@ export default function Signal() {
         <Ionicons name="locate" size={24} color="#1E1F24" />
       </TouchableOpacity>
 
-      {/* Report Button */}
       <TouchableOpacity
         style={styles.reportButton}
         onPress={() => setIsReportMode(!isReportMode)}
@@ -453,8 +424,6 @@ export default function Signal() {
         </View>
       </TouchableOpacity>
 
-      {/* Report Details Modal */}
-      {/* Spotted/Lost sighting creation modal */}
       <Modal
         visible={showModal}
         animationType="slide"
@@ -463,7 +432,6 @@ export default function Signal() {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            {/* Top center badge icon */}
             <View style={styles.modalBadgeContainer} pointerEvents="none">
               <View style={styles.modalBadgeCircle}>
                 <Image
@@ -481,7 +449,6 @@ export default function Signal() {
             </View>
 
             <ScrollView style={styles.formContainer} showsVerticalScrollIndicator={false}>
-              {/* Time Selection */}
               <Text style={styles.questionText}>When did you see the animal?</Text>
               <View style={styles.buttonRow}>
                 {['NOW', '5 min ago', '15 min ago', '1 hour ago', 'Other...'].map((time) => (
@@ -497,7 +464,6 @@ export default function Signal() {
                 ))}
               </View>
 
-              {/* Animal Type Selection */}
               <Text style={styles.questionText}>What kind of animal was it?</Text>
               <View style={styles.buttonRow}>
                 {['DOG', 'CAT', 'Other...'].map((type) => (
@@ -513,7 +479,6 @@ export default function Signal() {
                 ))}
               </View>
 
-              {/* Direction Input */}
               <Text style={styles.questionText}>Which direction was it heading?</Text>
               <TextInput
                 style={styles.textInput}
@@ -523,7 +488,6 @@ export default function Signal() {
                 onChangeText={setDirection}
               />
 
-              {/* Injured Status */}
               <Text style={styles.questionText}>Did the animal appear injured?</Text>
               <View style={styles.buttonRow}>
                 <TouchableOpacity
@@ -544,7 +508,6 @@ export default function Signal() {
                 </TouchableOpacity>
               </View>
 
-              {/* Photo Upload */}
               <Text style={styles.questionText}>Upload at least one photo of the animal</Text>
               <TouchableOpacity style={styles.photoUploadBox} onPress={pickImage}>
                 <View style={styles.photoUploadContent}>
@@ -574,7 +537,6 @@ export default function Signal() {
                 </View>
               </TouchableOpacity>
 
-              {/* Additional Information */}
               <Text style={styles.questionText}>Additional information</Text>
               <TextInput
                 style={[styles.textInput, styles.textInputMultiline]}
@@ -586,7 +548,6 @@ export default function Signal() {
                 numberOfLines={4}
               />
 
-              {/* Submit Button */}
               <TouchableOpacity style={styles.submitButton} onPress={handleSubmitReport}>
                 <Text style={styles.submitButtonText}>POST</Text>
               </TouchableOpacity>
@@ -594,7 +555,6 @@ export default function Signal() {
           </View>
         </View>
       </Modal>
-      {/* Lost pet detail modal (blue marker press) */}
       <LostPetDetailModal
         visible={showLostModal}
         onClose={() => {
@@ -622,7 +582,6 @@ export default function Signal() {
   );
 }
 
-// Reuse formatting utilities from case-detail (could be extracted later)
 const formatDate = (dateString: string) => {
   if (!dateString) return 'N/A';
   const date = new Date(dateString);
@@ -712,7 +671,6 @@ const LostPetDetailModal: React.FC<LostPetDetailModalProps> = ({ visible, onClos
       Alert.alert('Error', 'Failed to initiate call.');
     }
   };
-  // Only render when the marker is for a lost pet; otherwise, this modal won't be shown
   if (!visible) return null;
   return (
     <Modal
@@ -723,7 +681,6 @@ const LostPetDetailModal: React.FC<LostPetDetailModalProps> = ({ visible, onClos
     >
       <View style={styles.modalOverlay}>
         <View style={styles.modalContent}>
-          {/* Purple badge */}
           <View style={styles.modalBadgeContainer} pointerEvents="none">
             <View style={[styles.modalBadgeCircle, { borderColor: '#1E1F24' }] }>
               <Image source={require('../../assets/icons/attention_gray.png')} style={[styles.modalBadgeIcon, { tintColor: '#CDC1FF' }]} />
@@ -737,48 +694,40 @@ const LostPetDetailModal: React.FC<LostPetDetailModalProps> = ({ visible, onClos
             <Text style={styles.seenBadge}>SEEN: {getTimeAgo(lost?.createdAt || lost?.timestamp)}</Text>
           </View>
           <ScrollView style={styles.detailsContainer} showsVerticalScrollIndicator={false}>
-            {/* NAME */}
             <View style={styles.detailRow}>
               <Text style={styles.detailLabel}>NAME:</Text>
               <Text style={styles.detailValue}>{lost?.petName || 'N/A'}</Text>
             </View>
-            {/* LOST LOCATION */}
             <View style={styles.detailRow}>
               <Text style={styles.detailLabel}>LOST LOCATION:</Text>
               <Text style={styles.detailValue}>{lost?.lastSeenLocation || 'N/A'}</Text>
             </View>
-            {/* DATE */}
             <View style={styles.detailRow}>
               <Text style={styles.detailLabel}>DATE:</Text>
               <Text style={styles.detailValue}>{lost?.lastSeenDate ? formatDate(lost.lastSeenDate) : 'N/A'}</Text>
             </View>
-            {/* BREED */}
             <View style={styles.detailRow}>
               <Text style={styles.detailLabel}>BREED:</Text>
               <Text style={styles.detailValue}>{lost?.breed && lost?.animalType ? `${lost.breed} ${lost.animalType}` : lost?.breed || lost?.animalType || 'N/A'}</Text>
             </View>
-            {/* DISTINCTIVE MARKS */}
             {lost?.hasDistinctiveMarks && lost?.distinctiveMarks ? (
               <View style={styles.detailRow}>
                 <Text style={styles.detailLabel}>DISTINCTIVE MARKS:</Text>
                 <Text style={styles.detailValue}>{lost.distinctiveMarks}</Text>
               </View>
             ) : null}
-            {/* REWARD */}
             {lost?.hasReward ? (
               <View style={styles.detailRow}>
                 <Text style={styles.detailLabel}>REWARD:</Text>
                 <Text style={styles.detailValue}>100 Euros</Text>
               </View>
             ) : null}
-            {/* DESCRIPTION */}
             {lost?.additionalInfo ? (
               <View style={styles.detailRow}>
                 <Text style={styles.detailLabel}>DESCRIPTION:</Text>
                 <Text style={styles.detailValue}>{lost.additionalInfo}</Text>
               </View>
             ) : null}
-            {/* CONTACT - only show if not the owner */}
             {!isOwnReport && (
               <View style={styles.detailRow}>
                 <Text style={styles.detailLabel}>CONTACT:</Text>
@@ -794,7 +743,6 @@ const LostPetDetailModal: React.FC<LostPetDetailModalProps> = ({ visible, onClos
                 </View>
               </View>
             )}
-            {/* PHOTO GALLERY */}
             <Text style={styles.detailLabel}>PHOTO GALLERY</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.photoGallery}>
               {lost?.photos && lost.photos.length > 0 ? (
@@ -832,11 +780,9 @@ const SpottedDetailModal: React.FC<SpottedDetailModalProps> = ({ visible, onClos
           const results = await Location.reverseGeocodeAsync(marker.coordinate);
             if (!cancelled && results.length > 0) {
               const r = results[0];
-              // Build address parts, prioritizing street and city, skipping name if it's just a number
               const parts = [];
               if (r.street) parts.push(r.street);
               if (r.city) parts.push(r.city);
-              // Only add name if it's not purely numeric
               if (r.name && !/^\d+$/.test(r.name.trim())) {
                 parts.unshift(r.name);
               }
@@ -844,7 +790,6 @@ const SpottedDetailModal: React.FC<SpottedDetailModalProps> = ({ visible, onClos
               if (formatted) setResolvedAddress(formatted);
             }
         } catch {
-          // silent fail, we'll fallback to coordinates
         }
       }
     };
@@ -869,7 +814,6 @@ const SpottedDetailModal: React.FC<SpottedDetailModalProps> = ({ visible, onClos
             <Text style={styles.seenBadgeSpotted}>SEEN: {getTimeAgo(spotted?.createdAt || spotted?.timestamp)}</Text>
           </View>
           <ScrollView style={styles.detailsContainer} showsVerticalScrollIndicator={false}>
-            {/* Action buttons row (CHECK placeholder + SEEN badge already above) */}
             <View style={styles.detailRow}>
               <Text style={styles.detailLabel}>LOCATION:</Text>
               <Text style={styles.detailValue}>{
@@ -922,7 +866,6 @@ const SpottedDetailModal: React.FC<SpottedDetailModalProps> = ({ visible, onClos
                 <Text style={styles.deleteButtonText}>Delete report</Text>
               </TouchableOpacity>
             )}
-            {/* Extra bottom padding for delete button visibility */}
             <View style={{ height: 20 }} />
           </ScrollView>
         </View>
@@ -1218,7 +1161,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  // Modal badge styles
   modalBadgeContainer: {
     position: 'absolute',
     top: -28,
@@ -1243,7 +1185,6 @@ const styles = StyleSheet.create({
     resizeMode: 'contain',
     tintColor: '#5F9EA0',
   },
-  // Custom photo pin styles
   photoPinContainer: {
     alignItems: 'center',
   },
@@ -1289,7 +1230,6 @@ const styles = StyleSheet.create({
     resizeMode: 'contain',
     tintColor: '#1E1F24',
   },
-  // Green circle marker styles for saved reports
   greenCircleContainer: {
     width: 64,
     height: 64,

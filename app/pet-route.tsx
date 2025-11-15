@@ -30,7 +30,7 @@ interface CheckedSighting {
   createdAt?: string;
   address?: string;
   petName?: string;
-  lostPetId?: string; // reference to lost pet report
+  lostPetId?: string;
 }
 
 interface CombinedMarker {
@@ -44,7 +44,7 @@ interface CombinedMarker {
   address?: string;
   checkedAt?: Date;
   createdAt?: string;
-  lostPetId?: string; // for color reference when ALL selected
+  lostPetId?: string; 
 }
 
 export default function PetRoute() {
@@ -60,16 +60,13 @@ export default function PetRoute() {
   const [lostPetReports, setLostPetReports] = useState<LostPetReport[]>([]);
   const [checkedSightings, setCheckedSightings] = useState<CheckedSighting[]>([]);
   const [selectedPetId, setSelectedPetId] = useState<string>('ALL');
-  // Removed per-pet color mapping; using fixed colors
   const STORAGE_KEY = 'PET_ROUTE_SELECTED_PET';
 
-  // lightenHex function removed
   const [loading, setLoading] = useState(true);
   const [modalVisible, setModalVisible] = useState(false);
 
   useEffect(() => {
     (async () => {
-      // Request location permissions
       let { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
         console.log('Location permission denied');
@@ -77,7 +74,6 @@ export default function PetRoute() {
         return;
       }
 
-      // Get current location
       try {
         let location = await Location.getCurrentPositionAsync({
           accuracy: Location.Accuracy.High,
@@ -99,10 +95,8 @@ export default function PetRoute() {
     if (user?.id) {
       fetchPetRouteData();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
 
-  // Load persisted selection
   useEffect(() => {
     (async () => {
       try {
@@ -112,7 +106,6 @@ export default function PetRoute() {
     })();
   }, []);
 
-  // Persist selection changes
   useEffect(() => {
     (async () => {
       try {
@@ -125,7 +118,6 @@ export default function PetRoute() {
     try {
       setLoading(true);
       
-      // Fetch lost pet reports owned by the current user
       const reportsResponse = await fetch(API_ENDPOINTS.REPORTS);
       if (reportsResponse.ok) {
         const reportsData = await reportsResponse.json();
@@ -137,7 +129,6 @@ export default function PetRoute() {
           );
           setLostPetReports(userLostPets);
           
-          // Center map on first lost pet if available
           if (userLostPets.length > 0) {
             setRegion({
               latitude: userLostPets[0].latitude,
@@ -149,7 +140,6 @@ export default function PetRoute() {
         }
       }
 
-      // Fetch checked sightings (matches that have been checked)
       const matchesResponse = await fetch(`${API_ENDPOINTS.MATCHES}/user/${user?.id}`);
       if (matchesResponse.ok) {
         const matchesData = await matchesResponse.json();
@@ -158,7 +148,6 @@ export default function PetRoute() {
             matchesData.data
               .filter((match: any) => match.checked && match.spottedReportId)
               .map(async (match: any) => {
-                // Get address for this sighting
                 let address = 'Unknown location';
                 try {
                   const results = await Location.reverseGeocodeAsync({
@@ -196,7 +185,6 @@ export default function PetRoute() {
     }
   };
 
-  // Create polyline coordinates for selected pet (or all) sorted chronologically
   const getPolylineCoordinates = () => {
     const filteredLost = selectedPetId === 'ALL' ? lostPetReports : lostPetReports.filter(r => r._id === selectedPetId);
     const filteredSightings = selectedPetId === 'ALL' ? checkedSightings : checkedSightings.filter(s => s.lostPetId === selectedPetId);
@@ -216,7 +204,6 @@ export default function PetRoute() {
     return allPoints.map(p => ({ latitude: p.latitude, longitude: p.longitude }));
   };
 
-  // Get combined markers sorted by timestamp (newest first for modal)
   const getCombinedMarkers = (): CombinedMarker[] => {
     const filteredLost = selectedPetId === 'ALL' ? lostPetReports : lostPetReports.filter(r => r._id === selectedPetId);
     const filteredSightings = selectedPetId === 'ALL' ? checkedSightings : checkedSightings.filter(s => s.lostPetId === selectedPetId);
@@ -245,9 +232,6 @@ export default function PetRoute() {
         lostPetId: s.lostPetId,
       }))
     ];
-  // (removed unused renderPetSelector)
-
-    // Sort by timestamp, newest first
     markers.sort((a, b) => b.timestamp - a.timestamp);
     return markers;
   };
@@ -288,7 +272,6 @@ export default function PetRoute() {
         onBack={() => router.back()} 
         showRightDots={true}
       />
-      {/* Pet Selector */}
       {!loading && lostPetReports.length > 1 && (
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.selectorBar}>
             {lostPetReports.map(pet => (
@@ -317,7 +300,6 @@ export default function PetRoute() {
           showsUserLocation={true}
           showsMyLocationButton={true}
         >
-          {/* Dark blue markers for lost pet reports (owner's report) */}
           {(selectedPetId === 'ALL' ? lostPetReports : lostPetReports.filter(r => r._id === selectedPetId)).map((report) => (
             <Marker
               key={`lost-${report._id}`}
@@ -331,9 +313,7 @@ export default function PetRoute() {
             />
           ))}
 
-          {/* White markers for checked sightings */}
           {(selectedPetId === 'ALL' ? checkedSightings : checkedSightings.filter(s => s.lostPetId === selectedPetId)).map((sighting) => {
-            // Color logic simplified, lighter variable removed
             return (
             <Marker
               key={`checked-${sighting._id}`}
@@ -348,7 +328,6 @@ export default function PetRoute() {
             );
           })}
 
-          {/* Draw polyline connecting the points if there are multiple */}
           {(lostPetReports.length + checkedSightings.length) > 1 && (
             <Polyline
               coordinates={getPolylineCoordinates()}
@@ -359,10 +338,6 @@ export default function PetRoute() {
         </MapView>
       )}
 
-      {/* Legend */}
-        {/* Legend removed */}
-
-      {/* Bottom Modal with Last Seen History */}
       {!loading && (lostPetReports.length > 0 || checkedSightings.length > 0) && (
         <View style={[styles.modalContainer, { paddingBottom: insets.bottom }]}>
           <TouchableOpacity 

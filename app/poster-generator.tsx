@@ -123,14 +123,12 @@ export default function PosterGenerator() {
         <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
           <Text style={styles.heading}>CREATE A POSTER{"\n"}for your lost pet</Text>
 
-          {/* Tabs + Editable Details as a unified card */}
           {loading ? (
             <Text style={styles.loading}>Loading your lost cases…</Text>
           ) : cases.length === 0 ? (
             <Text style={styles.empty}>You have no lost pet reports yet.</Text>
           ) : (
             <>
-              {/* Pet selector outside of the edit container */}
               <ScrollView
                 horizontal
                 showsHorizontalScrollIndicator={false}
@@ -153,7 +151,6 @@ export default function PosterGenerator() {
                 })}
               </ScrollView>
 
-              {/* Editable Details container, now separate */}
               {selectedId && (
                 <View style={styles.form}>
                   <Text style={styles.label}>Pet name</Text>
@@ -212,10 +209,8 @@ export default function PosterGenerator() {
                         const { uri: tempUri } = await Print.printToFileAsync({ html });
                         const fileName = `Lost_${(form.animalType || 'Pet').replace(/\s+/g,'_')}_${(form.petName || 'Poster').replace(/\s+/g,'_')}.pdf`;
 
-                        // Platform-specific save/share logic
                         if (Platform.OS === 'android') {
                           try {
-                            // Attempt Storage Access Framework for user-directed save (Android 10+)
                             const SAF = (FileSystem as any).StorageAccessFramework;
                             const permissions = await SAF.requestDirectoryPermissionsAsync();
                             if (permissions.granted) {
@@ -228,21 +223,18 @@ export default function PosterGenerator() {
                           } catch (safErr) {
                             console.warn('SAF save failed, falling back to Sharing:', safErr);
                           }
-                          // Fallback: share sheet
                           if (await Sharing.isAvailableAsync()) {
                             await Sharing.shareAsync(tempUri, { mimeType: 'application/pdf', dialogTitle: 'Share poster PDF', UTI: 'com.adobe.pdf' });
                           } else {
                             Alert.alert('PDF ready', `Temporary file: ${tempUri}`);
                           }
                         } else if (Platform.OS === 'ios') {
-                          // iOS: present share sheet (user can save to Files / AirDrop)
                           if (await Sharing.isAvailableAsync()) {
                             await Sharing.shareAsync(tempUri, { mimeType: 'application/pdf', dialogTitle: 'Share poster PDF', UTI: 'com.adobe.pdf' });
                           } else {
                             Alert.alert('PDF ready', `Generated at: ${tempUri}`);
                           }
                         } else {
-                          // Web or other: just open or alert path
                           Alert.alert('PDF generated', `Saved to: ${tempUri}`);
                         }
                       } catch (e:any) {
@@ -257,7 +249,6 @@ export default function PosterGenerator() {
             </>
           )}
 
-          {/* Live A4 Poster Preview (identical to PDF HTML) */}
           {previewExpanded && (
             <View style={styles.webPreviewContainer}>
               <WebView
@@ -284,12 +275,10 @@ const styles = StyleSheet.create({
   heading: { fontSize: 32, fontWeight: '600', color: '#23395B', marginBottom: 40, marginTop: 35, textAlign: 'center', lineHeight: 40 },
   loading: { color: '#fff', textAlign: 'center', marginVertical: 20 },
   empty: { color: '#fff', textAlign: 'center', marginVertical: 20 },
-  // Deprecated chip styles kept for reference (no longer used)
   casePicker: { marginBottom: 12 },
   caseChip: { backgroundColor: '#D9D9D9', paddingVertical: 8, paddingHorizontal: 14, borderRadius: 16, marginRight: 8 },
   caseChipActive: { backgroundColor: '#23395B' },
   caseChipText: { color: '#FFFFFF', fontWeight: '600' },
-  // New unified editor card with folder-like tabs
   editorCard: { backgroundColor: 'rgba(255,255,255,0.98)', borderRadius: 12, marginBottom: 16, borderWidth: 1, borderColor: '#E5E7EB' },
   tabBar: { borderTopLeftRadius: 12, borderTopRightRadius: 12, paddingTop: 8, paddingBottom: 0 },
   tabBarContent: { paddingHorizontal: 8 },

@@ -21,7 +21,7 @@ export default function TopBar({ title = 'StraySignal', onBack, showRightDots = 
   const handleLogout = async () => {
   setShowMenu(false);
   await signOut();
-  // No manual redirect needed; Clerk will switch to SignedOut stack
+  
   };
 
   return (

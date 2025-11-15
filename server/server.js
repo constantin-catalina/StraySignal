@@ -6,14 +6,14 @@ require('dotenv').config();
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Middleware
-app.use(cors()); // Enable CORS for all routes
-app.use(express.json({ limit: '50mb' })); // Parse JSON bodies (increased limit for base64 images)
+
+app.use(cors()); 
+app.use(express.json({ limit: '50mb' })); 
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
-// MongoDB Connection (Atlas or local)
+
 const MONGODB_URI = process.env.MONGODB_URI;
-const MONGODB_DB_NAME = process.env.MONGODB_DB_NAME; // optional if URI does not include a db name
+const MONGODB_DB_NAME = process.env.MONGODB_DB_NAME; 
 
 if (!MONGODB_URI) {
   console.error('\nMissing MONGODB_URI environment variable.');
@@ -22,10 +22,7 @@ if (!MONGODB_URI) {
   process.exit(1);
 }
 
-/**
- * Establish a MongoDB connection with retry logic.
- * Removes deprecated options (useNewUrlParser/useUnifiedTopology) which are defaults in Mongoose >=6.
- */
+
 const MAX_RETRIES = 5;
 let attempt = 0;
 
@@ -50,7 +47,7 @@ function connectWithRetry() {
     });
 }
 
-// Connection state listeners for better diagnostics
+
 mongoose.connection.on('connected', () => console.log('Mongoose connected')); 
 mongoose.connection.on('error', err => console.error('Mongoose error:', err.message));
 mongoose.connection.on('disconnected', () => console.warn('Mongoose disconnected')); 
@@ -58,7 +55,7 @@ mongoose.connection.on('reconnected', () => console.log('Mongoose reconnected'))
 
 connectWithRetry();
 
-// Helpful warning if localhost fails quickly (often service not started)
+
 setTimeout(() => {
   if (mongoose.connection.readyState !== 1) {
   console.log('Still not connected. Verify MongoDB service is running.');
@@ -68,7 +65,7 @@ setTimeout(() => {
   }
 }, 5000);
 
-// Import models
+
 const AnimalReport = require('./models/AnimalReport');
 const User = require('./models/User');
 const Match = require('./models/Match');
@@ -76,10 +73,10 @@ const Conversation = require('./models/Conversation');
 const Message = require('./models/Message');
 const mlService = require('./ml-service');
 
-// Routes
 
-// ============ CHAT REST ENDPOINTS ============
-// Open or create a conversation between two users
+
+
+
 app.post('/api/chat/open', async (req, res) => {
   try {
     const { userId, peerId } = req.body;
@@ -98,7 +95,7 @@ app.post('/api/chat/open', async (req, res) => {
   }
 });
 
-// List conversations for a user
+
 app.get('/api/chat/conversations', async (req, res) => {
   try {
     const { userId } = req.query;
@@ -123,7 +120,7 @@ app.get('/api/chat/conversations', async (req, res) => {
   }
 });
 
-// Get messages for a conversation
+
 app.get('/api/chat/messages/:conversationId', async (req, res) => {
   try {
     const { conversationId } = req.params;
@@ -135,7 +132,7 @@ app.get('/api/chat/messages/:conversationId', async (req, res) => {
   }
 });
 
-// Post a new message
+
 app.post('/api/chat/messages', async (req, res) => {
   try {
     const { conversationId, senderId, text } = req.body;
@@ -155,14 +152,14 @@ app.post('/api/chat/messages', async (req, res) => {
   }
 });
 
-// Health check endpoint
+
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', message: 'Server is running' });
 });
 
-// ============ USER PROFILE ENDPOINTS ============
 
-// GET user profile by Clerk ID
+
+
 app.get('/api/users/:clerkId', async (req, res) => {
   try {
     const { clerkId } = req.params;
@@ -189,7 +186,7 @@ app.get('/api/users/:clerkId', async (req, res) => {
   }
 });
 
-// POST create or update user profile
+
 app.post('/api/users', async (req, res) => {
   try {
     const {
@@ -212,11 +209,11 @@ app.post('/api/users', async (req, res) => {
       });
     }
 
-    // Find existing user or create new one
+    
     let user = await User.findOne({ clerkId });
 
     if (user) {
-      // Update existing user
+      
       user.name = name;
       user.phone = phone !== undefined ? phone : user.phone;
       user.location = location !== undefined ? location : user.location;
@@ -224,9 +221,9 @@ app.post('/api/users', async (req, res) => {
       user.showPhoneNumber = showPhoneNumber !== undefined ? showPhoneNumber : user.showPhoneNumber;
       user.radiusPreference = radiusPreference !== undefined ? radiusPreference : user.radiusPreference;
       
-      // Only update email if it's different to avoid duplicate key error
+      
       if (user.email !== email) {
-        // Check if another user already has this email
+        
         const emailExists = await User.findOne({ email, clerkId: { $ne: clerkId } });
         if (emailExists) {
           return res.status(400).json({
@@ -241,7 +238,7 @@ app.post('/api/users', async (req, res) => {
         await user.save();
         console.log('User updated successfully:', user._id);
       } catch (saveError) {
-        // Handle duplicate key errors
+        
         if (saveError.code === 11000) {
           console.error('Duplicate key error during save:', saveError);
           return res.status(400).json({
@@ -253,7 +250,7 @@ app.post('/api/users', async (req, res) => {
         throw saveError;
       }
     } else {
-      // Create new user
+      
       user = new User({
         clerkId,
         name,
@@ -285,7 +282,7 @@ app.post('/api/users', async (req, res) => {
   }
 });
 
-// PUT update user profile
+
 app.put('/api/users/:clerkId', async (req, res) => {
   try {
     const { clerkId } = req.params;
@@ -318,14 +315,14 @@ app.put('/api/users/:clerkId', async (req, res) => {
   }
 });
 
-// ============ ANIMAL REPORT ENDPOINTS ============
 
-// GET all animal reports
+
+
 app.get('/api/reports', async (req, res) => {
   try {
     const reports = await AnimalReport.find().sort({ createdAt: -1 });
     
-    // For lost-from-home reports, include the owner's phone visibility preference
+    
     const enrichedReports = await Promise.all(
       reports.map(async (report) => {
         const reportObj = report.toObject();
@@ -358,10 +355,10 @@ app.get('/api/reports', async (req, res) => {
   }
 });
 
-// GET reports near a location (within radius)
+
 app.get('/api/reports/nearby', async (req, res) => {
   try {
-    const { latitude, longitude, radius = 5 } = req.query; // radius in kilometers
+    const { latitude, longitude, radius = 5 } = req.query; 
     
     if (!latitude || !longitude) {
       return res.status(400).json({
@@ -370,7 +367,7 @@ app.get('/api/reports/nearby', async (req, res) => {
       });
     }
 
-    // Simple distance calculation (you can use MongoDB's $geoNear for more accuracy)
+    
     const reports = await AnimalReport.find();
     
     const nearbyReports = reports.filter(report => {
@@ -398,7 +395,7 @@ app.get('/api/reports/nearby', async (req, res) => {
   }
 });
 
-// POST create a new animal report
+
 app.post('/api/reports', async (req, res) => {
   try {
     const {
@@ -413,7 +410,7 @@ app.post('/api/reports', async (req, res) => {
       timestamp,
     } = req.body;
 
-    // Validation
+    
     if (!latitude || !longitude || !time || !animalType || injured === undefined) {
       return res.status(400).json({
         success: false,
@@ -428,7 +425,7 @@ app.post('/api/reports', async (req, res) => {
       });
     }
 
-    // Create new report, ensure reportedBy is set
+    
     const newReport = new AnimalReport({
       latitude,
       longitude,
@@ -461,7 +458,7 @@ app.post('/api/reports', async (req, res) => {
   }
 });
 
-// POST create a lost pet report
+
 app.post('/api/reports/lost-pet', async (req, res) => {
   try {
     const {
@@ -480,7 +477,7 @@ app.post('/api/reports/lost-pet', async (req, res) => {
       reportedBy,
     } = req.body;
 
-    // Validation
+    
     if (!petName || !animalType || !lastSeenLocation || !lastSeenDate) {
       return res.status(400).json({
         success: false,
@@ -495,7 +492,7 @@ app.post('/api/reports/lost-pet', async (req, res) => {
       });
     }
 
-    // Create new lost pet report
+    
     const newReport = new AnimalReport({
       petName,
       animalType,
@@ -531,7 +528,7 @@ app.post('/api/reports/lost-pet', async (req, res) => {
   }
 });
 
-// GET a single report by ID
+
 app.get('/api/reports/:id', async (req, res) => {
   try {
     const report = await AnimalReport.findById(req.params.id);
@@ -545,7 +542,7 @@ app.get('/api/reports/:id', async (req, res) => {
 
     const reportObj = report.toObject();
     
-    // For lost-from-home reports, include the owner's phone visibility preference
+    
     if (report.reportType === 'lost-from-home' && report.reportedBy) {
       try {
         const owner = await User.findOne({ clerkId: report.reportedBy });
@@ -571,7 +568,7 @@ app.get('/api/reports/:id', async (req, res) => {
   }
 });
 
-// DELETE a report by ID
+
 app.delete('/api/reports/:id', async (req, res) => {
   try {
     const report = await AnimalReport.findByIdAndDelete(req.params.id);
@@ -598,11 +595,11 @@ app.delete('/api/reports/:id', async (req, res) => {
   }
 });
 
-// PUT update an existing animal report (primarily for lost pet posters)
+
 app.put('/api/reports/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    // Allow updating a subset of fields; ignore unknown keys silently
+    
     const allowedFields = [
       'petName',
       'animalType',
@@ -617,7 +614,7 @@ app.put('/api/reports/:id', async (req, res) => {
     const updates = {};
     for (const key of allowedFields) {
       if (req.body[key] !== undefined) {
-        // Special handling for date field
+        
         if (key === 'lastSeenDate' && req.body[key]) {
           updates[key] = new Date(req.body[key]);
         } else {
@@ -626,7 +623,7 @@ app.put('/api/reports/:id', async (req, res) => {
       }
     }
 
-    // Debug log to verify the route is hit and what's being updated
+    
     console.log(`[PUT] /api/reports/${id}`, { keys: Object.keys(updates) });
 
     if (Object.keys(updates).length === 0) {
@@ -653,9 +650,9 @@ app.put('/api/reports/:id', async (req, res) => {
   }
 });
 
-// Helper function to calculate distance between two coordinates (Haversine formula)
+
 function calculateDistance(lat1, lon1, lat2, lon2) {
-  const R = 6371; // Radius of the Earth in kilometers
+  const R = 6371; 
   const dLat = toRad(lat2 - lat1);
   const dLon = toRad(lon2 - lon1);
   const a =
@@ -670,22 +667,22 @@ function toRad(degrees) {
   return degrees * (Math.PI / 180);
 }
 
-// ============ ML MATCHING ENDPOINTS ============
 
-// Initialize ML model on server start
+
+
 mlService.initializeBaseModel().catch(err => {
   console.error('Failed to initialize ML model:', err);
   console.warn('ML matching will not be available');
 });
 
-// Process matches for a newly spotted animal report
+
 app.post('/api/matches/process/:reportId', async (req, res) => {
   try {
     const { reportId } = req.params;
     console.log('========================================');
     console.log('Processing ML matches for report:', reportId);
     
-    // Get the spotted report
+    
     const spottedReport = await AnimalReport.findById(reportId);
     if (!spottedReport) {
       console.log('ERROR: Spotted report not found');
@@ -702,7 +699,7 @@ app.post('/api/matches/process/:reportId', async (req, res) => {
       photos: spottedReport.photos?.length || 0,
     });
 
-    // Only process spotted-on-streets reports
+    
     if (spottedReport.reportType !== 'spotted-on-streets') {
       console.log('ERROR: Not a spotted-on-streets report');
       return res.status(400).json({
@@ -711,7 +708,7 @@ app.post('/api/matches/process/:reportId', async (req, res) => {
       });
     }
 
-    // Get all lost-from-home reports
+    
     const lostPets = await AnimalReport.find({ reportType: 'lost-from-home' });
     console.log(`Found ${lostPets.length} lost pet reports to compare`);
     
@@ -725,17 +722,17 @@ app.post('/api/matches/process/:reportId', async (req, res) => {
     }
 
     console.log('Starting ML matching...');
-    // Find matches using ML
+    
     const matches = await mlService.findMatches(spottedReport.toObject(), lostPets.map(p => p.toObject()), 75);
     console.log(`ML matching complete. Found ${matches.length} matches above threshold`);
     
-    // Save matches to database
+    
     const savedMatches = [];
     for (const match of matches) {
       try {
         console.log(`Saving match: score=${match.matchScore}%, pet=${match.lostPetName}, owner=${match.ownerId}`);
         
-        // Check if match already exists
+        
         const existing = await Match.findOne({
           spottedReportId: match.spottedReportId,
           lostPetId: match.lostPetId,
@@ -760,7 +757,7 @@ app.post('/api/matches/process/:reportId', async (req, res) => {
         }
       } catch (error) {
         console.error('Error saving match:', error);
-        // Continue with other matches
+        
       }
     }
 
@@ -783,7 +780,7 @@ app.post('/api/matches/process/:reportId', async (req, res) => {
   }
 });
 
-// Get matches for a specific user (for inbox/notifications)
+
 app.get('/api/matches/user/:userId', async (req, res) => {
   try {
     const { userId } = req.params;
@@ -818,7 +815,7 @@ app.get('/api/matches/user/:userId', async (req, res) => {
   }
 });
 
-// Update match status
+
 app.patch('/api/matches/:matchId', async (req, res) => {
   try {
     const { matchId } = req.params;
@@ -882,7 +879,7 @@ app.patch('/api/matches/:matchId', async (req, res) => {
   }
 });
 
-// Compare two specific images (for testing)
+
 app.post('/api/matches/compare', async (req, res) => {
   try {
     const { image1, image2 } = req.body;
@@ -910,14 +907,14 @@ app.post('/api/matches/compare', async (req, res) => {
   }
 });
 
-// Reprocess all existing spotted reports to regenerate matches with improved algorithm
+
 app.post('/api/matches/reprocess-all', async (req, res) => {
   try {
     console.log('========================================');
     console.log('REPROCESSING ALL SPOTTED REPORTS');
     console.log('========================================');
     
-    // Get all spotted reports
+    
     const spottedReports = await AnimalReport.find({ reportType: 'spotted-on-streets' });
     console.log(`Found ${spottedReports.length} spotted reports to reprocess`);
     
@@ -929,7 +926,7 @@ app.post('/api/matches/reprocess-all', async (req, res) => {
       });
     }
     
-    // Get all lost pets once (for efficiency)
+    
     const lostPets = await AnimalReport.find({ reportType: 'lost-from-home' });
     console.log(`Found ${lostPets.length} lost pet reports to compare against`);
     
@@ -945,12 +942,12 @@ app.post('/api/matches/reprocess-all', async (req, res) => {
     let totalMatchesCreated = 0;
     let totalMatchesUpdated = 0;
     
-    // Process each spotted report
+    
     for (const spottedReport of spottedReports) {
       try {
         console.log(`\nProcessing report ${spottedReport._id}...`);
         
-        // Find matches using improved algorithm
+        
         const matches = await mlService.findMatches(
           spottedReport.toObject(),
           lostPets.map(p => p.toObject()),
@@ -959,7 +956,7 @@ app.post('/api/matches/reprocess-all', async (req, res) => {
         
         console.log(`Found ${matches.length} matches for this report`);
         
-        // Update or create matches in database
+        
         for (const match of matches) {
           const existing = await Match.findOne({
             spottedReportId: match.spottedReportId,
@@ -967,7 +964,7 @@ app.post('/api/matches/reprocess-all', async (req, res) => {
           });
           
           if (existing) {
-            // Update existing match with new scores
+            
             await Match.findByIdAndUpdate(existing._id, {
               matchScore: match.matchScore,
               visualSimilarity: match.visualSimilarity,
@@ -975,7 +972,7 @@ app.post('/api/matches/reprocess-all', async (req, res) => {
             totalMatchesUpdated++;
             console.log(`Updated match ${existing._id}: ${match.matchScore}%`);
           } else {
-            // Create new match
+            
             const newMatch = new Match({
               spottedReportId: match.spottedReportId,
               lostPetId: match.lostPetId,
@@ -994,7 +991,7 @@ app.post('/api/matches/reprocess-all', async (req, res) => {
         totalProcessed++;
       } catch (error) {
         console.error(`Error processing report ${spottedReport._id}:`, error);
-        // Continue with next report
+        
       }
     }
     
@@ -1024,9 +1021,9 @@ app.post('/api/matches/reprocess-all', async (req, res) => {
   }
 });
 
-// Start server
-// Listen on 0.0.0.0 to accept connections from all network interfaces (container / host / cloud dyno)
-// ============ SOCKET.IO REAL-TIME LAYER ============
+
+
+
 const http = require('http');
 const { Server } = require('socket.io');
 const httpServer = http.createServer(app);
@@ -1041,7 +1038,7 @@ io.on('connection', (socket) => {
     socket.join(`user:${userId}`);
   }
 
-  // Helper to emit updated conversation to participants
+  
   async function emitConversationUpdate(convoId) {
     const convo = await Conversation.findById(convoId);
     if (!convo) return;
@@ -1126,13 +1123,13 @@ io.on('connection', (socket) => {
     emitConversationUpdate(conversationId);
   });
 
-  // Typing indicator
+  
   socket.on('chat:typing', ({ conversationId, isTyping }) => {
     if (!userId || !conversationId) return;
     socket.to(`convo:${conversationId}`).emit('chat:typing', { conversationId, userId, isTyping: !!isTyping });
   });
 
-  // Read receipts for a specific message
+  
   socket.on('chat:read', async ({ conversationId, messageId }) => {
     if (!userId || !conversationId || !messageId) return;
     const msg = await Message.findOne({ _id: messageId, conversationId });
@@ -1141,7 +1138,7 @@ io.on('connection', (socket) => {
       msg.readBy.push(userId);
       await msg.save();
     }
-    // If it's the last message, update conversation read state
+    
     const convo = await Conversation.findById(conversationId);
     if (convo && convo.lastMessageAt && msg._id.toString() === convo.readCursors.get(convo.lastSenderId) || msg.text === convo.lastMessageText) {
       if (!convo.lastMessageReadBy.includes(userId)) {
@@ -1150,12 +1147,12 @@ io.on('connection', (socket) => {
         await convo.save();
       }
     }
-    // Always emit conversation update to refresh unread count
+    
     emitConversationUpdate(conversationId);
     io.to(`convo:${conversationId}`).emit('chat:read', { conversationId, messageId, userId });
   });
 
-  // Delete message
+  
   socket.on('chat:delete', async ({ conversationId, messageId }) => {
     try {
       console.log(`[chat:delete] userId=${userId}, conversationId=${conversationId}, messageId=${messageId}`);
@@ -1177,7 +1174,7 @@ io.on('connection', (socket) => {
       await Message.deleteOne({ _id: messageId });
       console.log(`[chat:delete] Message deleted from database`);
       
-      // Update conversation if this was the last message
+      
       const convo = await Conversation.findById(conversationId);
       if (convo && convo.lastMessageText === msg.text) {
         const lastMsg = await Message.findOne({ conversationId }).sort({ createdAt: -1 });
@@ -1205,7 +1202,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('disconnect', () => {
-    // cleanup if needed
+    
   });
 });
 
@@ -1213,7 +1210,7 @@ httpServer.listen(PORT, '0.0.0.0', () => {
   console.log(`Server + Socket.IO listening on port ${PORT}`);
 });
 
-// Global error safety nets
+
 process.on('unhandledRejection', (reason) => {
   console.error('Unhandled Rejection:', reason);
 });

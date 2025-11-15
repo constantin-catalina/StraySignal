@@ -8,7 +8,6 @@ import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { Alert, Image, ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
-// Per-user storage to avoid mixing data between different signed-in accounts
 const PROFILE_DATA_KEY_PREFIX = 'user_profile_data:';
 
 export default function EditProfile() {
@@ -16,7 +15,6 @@ export default function EditProfile() {
   const { user } = useUser();
   const storageKey = user?.id ? `${PROFILE_DATA_KEY_PREFIX}${user.id}` : null;
 
-  // Initialize state with current user data
   const [name, setName] = useState(user?.fullName || '');
   const [email, setEmail] = useState(user?.emailAddresses?.[0]?.emailAddress || '');
   const [phone, setPhone] = useState('');
@@ -25,24 +23,20 @@ export default function EditProfile() {
   const [radiusPreference, setRadiusPreference] = useState('2');
   const [profileImage, setProfileImage] = useState(user?.imageUrl || '');
 
-  // Load saved profile data on mount
   useEffect(() => {
     loadProfileData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const loadProfileData = async () => {
     try {
       if (!user?.id) return;
 
-      // First try to load from MongoDB
       const response = await fetch(`${API_ENDPOINTS.USERS}/${user.id}`);
       
       if (response.ok) {
         const data = await response.json();
         if (data.success && data.data) {
           const userData = data.data;
-          // Use saved data from MongoDB (user can edit name); prefer Clerk for email/image only
           setName(userData.name || user?.fullName || '');
           setEmail(user?.emailAddresses?.[0]?.emailAddress || userData.email || '');
           setPhone(userData.phone || '');
@@ -54,12 +48,10 @@ export default function EditProfile() {
         }
       }
 
-      // Fallback to AsyncStorage if MongoDB fetch fails
       if (storageKey) {
         const savedData = await AsyncStorage.getItem(storageKey);
         if (savedData) {
         const profileData = JSON.parse(savedData);
-        // Use saved name from storage (user can edit); prefer Clerk for email/image only
         setName(profileData.name || user?.fullName || '');
         setEmail(user?.emailAddresses?.[0]?.emailAddress || profileData.email || '');
         setPhone(profileData.phone || '');
@@ -137,10 +129,8 @@ export default function EditProfile() {
         return;
       }
 
-      // If no phone, ensure showPhoneNumber is false
       const finalShowPhoneNumber = phone && phone.trim().length > 0 ? showPhoneNumber : false;
 
-      // Prepare profile data
       const profileData = {
         clerkId: user.id,
         name,
@@ -205,7 +195,6 @@ export default function EditProfile() {
       </View>
 
       <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-        {/* Profile Picture Section */}
         <View style={styles.profileSection}>
           <View style={styles.profilePictureContainer}>
             {profileImage ? (
@@ -225,7 +214,6 @@ export default function EditProfile() {
         </View>
 
         <View style={styles.formContainer}>
-          {/* Name */}
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Full Name</Text>
             <TextInput
@@ -237,7 +225,6 @@ export default function EditProfile() {
             />
           </View>
 
-          {/* Email */}
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Email</Text>
             <TextInput
@@ -251,7 +238,6 @@ export default function EditProfile() {
             />
           </View>
 
-          {/* Phone */}
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Phone Number</Text>
             <TextInput
@@ -264,7 +250,6 @@ export default function EditProfile() {
             />
           </View>
 
-          {/* Location */}
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Location</Text>
             <TextInput
@@ -276,7 +261,6 @@ export default function EditProfile() {
             />
           </View>
 
-          {/* Show Phone Number Toggle */}
           <View style={styles.inputGroup}>
             <View style={styles.switchRow}>
               <Text style={styles.label}>Show phone number in lost pet cases</Text>
@@ -293,7 +277,6 @@ export default function EditProfile() {
             )}
           </View>
 
-          {/* Radius Preference */}
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Alert Radius (km)</Text>
             <TextInput
@@ -309,7 +292,6 @@ export default function EditProfile() {
             </Text>
           </View>
 
-          {/* Save Button */}
           <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
             <Text style={styles.saveButtonText}>Save Changes</Text>
           </TouchableOpacity>

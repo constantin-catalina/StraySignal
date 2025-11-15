@@ -25,7 +25,6 @@ export default function SignInScreen() {
   const redirectUri = makeRedirectUri({ scheme: 'straysignal' });
 
 
-  // Create backend user once Clerk user info is loaded and signed in
   useEffect(() => {
     async function handleUserCreationAndRedirect() {
       if (userLoaded && userSignedIn && user && !hasCreatedUser.current) {
@@ -44,7 +43,6 @@ export default function SignInScreen() {
               shouldRedirect = true;
             } else {
               const errorData = await response.json();
-              // Only allow redirect if duplicate user error (already exists)
               if (errorData.error?.includes('E11000')) {
                 shouldRedirect = true;
               } else {
@@ -73,12 +71,10 @@ export default function SignInScreen() {
         await google.startOAuthFlow({ redirectUrl: redirectUri });
       if (createdSessionId) {
         await setActiveOAuth?.({ session: createdSessionId });
-        // Redirect will happen after backend user creation in useEffect
       }
     } catch (e: any) {
       const msg = e?.message ?? 'Please try again.';
       if (msg.toLowerCase().includes('already signed')) {
-        // Redirect will happen after backend user creation in useEffect
         return;
       }
       Alert.alert('Google sign-in failed', msg);
@@ -96,12 +92,10 @@ export default function SignInScreen() {
         await facebook.startOAuthFlow({ redirectUrl: redirectUri });
       if (createdSessionId) {
         await setActiveOAuth?.({ session: createdSessionId });
-        // Redirect will happen after backend user creation in useEffect
       }
     } catch (e: any) {
       const msg = e?.message ?? 'Please try again.';
       if (msg.toLowerCase().includes('already signed')) {
-        // Redirect will happen after backend user creation in useEffect
         return;
       }
       Alert.alert('Facebook sign-in failed', msg);
@@ -144,7 +138,6 @@ export default function SignInScreen() {
           <Text style={[styles.ctaText, styles.ctaTextPrimary]}>CONTINUE WITH FACEBOOK</Text>
         </TouchableOpacity>
 
-        {/* Google */}
         <TouchableOpacity style={[styles.cta, styles.ctaOutline]} onPress={onGooglePress} activeOpacity={0.9}>
           <Image source={GOOGLE} style={styles.leftIcon} resizeMode="contain" />
           <Text style={styles.ctaText}>CONTINUE WITH GOOGLE</Text>
@@ -152,7 +145,6 @@ export default function SignInScreen() {
 
         <Text style={styles.or}>OR LOG IN WITH EMAIL</Text>
 
-        {/* Email */}
         <TextInput
           placeholder="Email address"
           placeholderTextColor="#7C8AA5"
@@ -163,7 +155,6 @@ export default function SignInScreen() {
           onChangeText={setEmail}
         />
 
-        {/* Password */}
         <TextInput
           placeholder="Password"
           placeholderTextColor="#7C8AA5"

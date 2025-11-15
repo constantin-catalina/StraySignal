@@ -16,7 +16,7 @@ interface InjuredAnimalAlert {
   matchScore?: number;
   matchedPetName?: string;
   matchedPetId?: string;
-  reportId?: string; // The actual report ID for fetching full details
+  reportId?: string; 
 }
 
 interface AlertContextType {
@@ -87,7 +87,7 @@ export const AlertProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         radiusPreference = parsed.radiusPreference || 2;
       }
 
-      // Fetch all data in parallel
+      
       const [reportsResponse, matchesResponse] = await Promise.all([
         fetch(API_ENDPOINTS.REPORTS),
         fetch(`${API_ENDPOINTS.MATCHES}/user/${user.id}`).catch(() => null),
@@ -103,25 +103,25 @@ export const AlertProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       if (reportsData.success && reportsData.data) {
         const allReports = reportsData.data;
         
-        // First, collect all matched report IDs from ML matches
+        
         const matchedReportIds = new Set<string>();
         
-        // Check for ML-based matches from backend first
+        
         if (matchesResponse && matchesResponse.ok) {
           const matchesData = await matchesResponse.json();
           
           if (matchesData.success && matchesData.data) {
             for (const match of matchesData.data) {
-              // Get the spotted report details
+              
               const spottedReport = match.spottedReportId;
               if (!spottedReport || !spottedReport.latitude || !spottedReport.longitude) {
                 continue;
               }
 
-              // Track this report as having a match
+              
               matchedReportIds.add(spottedReport._id);
 
-              // Only show alerts for matches >= 80%
+              
               if (match.matchScore < 80) {
                 continue;
               }
@@ -147,7 +147,7 @@ export const AlertProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                     if (parts.length > 0) locationName = parts.join(', ');
                   }
                 } catch {
-                  // Use coordinates as fallback
+                  
                 }
 
                 nearbyAlerts.push({
@@ -162,21 +162,21 @@ export const AlertProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                   matchScore: match.matchScore,
                   matchedPetName: match.lostPetId?.petName,
                   matchedPetId: match.lostPetId?._id,
-                  reportId: spottedReport._id, // Add the actual report ID for fetching details
+                  reportId: spottedReport._id, 
                 });
               }
             }
           }
         }
         
-        // Now check for injured animals, excluding those that already have match alerts
+        
         const injuredReports = allReports.filter((report: any) => 
           report.injured === true &&
           report.reportType === 'spotted-on-streets' &&
           typeof report.latitude === 'number' &&
           typeof report.longitude === 'number' &&
-          report.reportedBy !== user.id && // Exclude user's own reports
-          !matchedReportIds.has(report._id) // Exclude reports that have match alerts
+          report.reportedBy !== user.id && 
+          !matchedReportIds.has(report._id) 
         );
 
         for (const report of injuredReports) {
@@ -201,7 +201,7 @@ export const AlertProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                 if (parts.length > 0) locationName = parts.join(', ');
               }
             } catch {
-              // Use coordinates as fallback
+              
             }
 
             nearbyAlerts.push({
@@ -217,7 +217,7 @@ export const AlertProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           }
         }
 
-        // Sort by priority: high-match > moderate-match > injured, then by distance
+        
         nearbyAlerts.sort((a, b) => {
           const priorityOrder = { 'high-match': 0, 'moderate-match': 1, 'injured': 2 };
           const priorityDiff = priorityOrder[a.type] - priorityOrder[b.type];
@@ -234,7 +234,7 @@ export const AlertProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   }, [user?.id, locationEnabled]);
 
-  // Check location permission and enable monitoring
+  
   useEffect(() => {
     const checkLocationPermission = async () => {
       try {
@@ -252,17 +252,17 @@ export const AlertProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     checkLocationPermission();
     
-    // Re-check permission every 30 seconds
+    
     const interval = setInterval(checkLocationPermission, 30000);
     return () => clearInterval(interval);
   }, []);
 
-  // Check for injured animals periodically when location is enabled
+  
   useEffect(() => {
     if (locationEnabled && user?.id) {
       checkForInjuredAnimals();
       
-      // Check every 5 minutes
+      
       const interval = setInterval(checkForInjuredAnimals, 5 * 60 * 1000);
       return () => clearInterval(interval);
     }

@@ -22,7 +22,7 @@ const animalReportSchema = new mongoose.Schema({
     type: Boolean,
   },
   photos: [{
-    type: String, // Store photo URIs or base64 strings
+    type: String, 
   }],
   additionalInfo: {
     type: String,
@@ -38,12 +38,12 @@ const animalReportSchema = new mongoose.Schema({
     type: Date,
     default: Date.now,
   },
-  // Optional: Add user info if you want to track who reported
+  
   reportedBy: {
     type: String,
     default: 'anonymous',
   },
-  // Lost pet specific fields
+  
   petName: {
     type: String,
   },
@@ -66,10 +66,10 @@ const animalReportSchema = new mongoose.Schema({
     type: String,
   },
 }, {
-  timestamps: true, // Adds createdAt and updatedAt automatically
+  timestamps: true, 
 });
 
-// Create a 2dsphere index for geospatial queries (useful for finding nearby reports)
+
 animalReportSchema.index({ latitude: 1, longitude: 1 });
 
 const AnimalReport = mongoose.model('AnimalReport', animalReportSchema);

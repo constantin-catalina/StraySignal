@@ -23,7 +23,6 @@ interface ReportDetails {
   reportedBy: string;
   timestamp: string;
   createdAt: string;
-  // Lost pet specific fields
   petName?: string;
   breed?: string;
   lastSeenLocation?: string;
@@ -167,7 +166,6 @@ export default function AlertDetails() {
     <View style={styles.container}>
       <TopBarSecondary title="Sighting Detail" onBack={() => router.back()} showRightDots={true} />
       
-      {/* Full Screen Map */}
       <MapView
         style={styles.fullMap}
         provider={PROVIDER_GOOGLE}
@@ -188,7 +186,6 @@ export default function AlertDetails() {
         />
       </MapView>
 
-      {/* Spotted Detail Modal */}
       <SpottedDetailModal
         visible={showModal}
         onClose={() => setShowModal(false)}
@@ -203,7 +200,6 @@ export default function AlertDetails() {
   );
 }
 
-// Helper function for time ago
 const getTimeAgo = (dateString?: string) => {
   if (!dateString) return 'N/A';
   const date = new Date(dateString);
@@ -218,7 +214,6 @@ const getTimeAgo = (dateString?: string) => {
   return `${diffDays}d ago`;
 };
 
-// Modal Component
 interface SpottedDetailModalProps {
   visible: boolean;
   onClose: () => void;
@@ -264,7 +259,6 @@ const SpottedDetailModal: React.FC<SpottedDetailModalProps> = ({
             if (formatted) setResolvedAddress(formatted);
           }
         } catch {
-          // silent fail, fallback to coordinates
         }
       }
     };
@@ -317,7 +311,6 @@ const SpottedDetailModal: React.FC<SpottedDetailModalProps> = ({
               </View>
             )}
             
-            {/* Only show CONTACT section if user is not the owner of the report */}
             {report.reportedBy !== currentUserId && (
               <View style={styles.detailRow}>
                 <Text style={styles.detailLabel}>CONTACT:</Text>
@@ -517,7 +510,6 @@ const styles = StyleSheet.create({
     marginRight: 12,
     backgroundColor: '#1E2633',
   },
-  // Modal styles
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',

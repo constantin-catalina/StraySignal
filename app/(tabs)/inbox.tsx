@@ -81,11 +81,11 @@ export default function Inbox() {
                     router.push({
                       pathname: '/alert-details',
                       params: {
-                        alertId: alert.reportId || alert.id, // Use reportId if available (for matches), otherwise use id
+                        alertId: alert.reportId || alert.id,
                         alertLat: alert.latitude.toString(),
                         alertLng: alert.longitude.toString(),
                         alertType: alert.type,
-                        matchId: (alert.type === 'high-match' || alert.type === 'moderate-match') ? alert.id : undefined, // Pass matchId for match alerts
+                        matchId: (alert.type === 'high-match' || alert.type === 'moderate-match') ? alert.id : undefined, 
                       }
                     });
                   }}

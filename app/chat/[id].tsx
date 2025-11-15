@@ -23,14 +23,11 @@ export default function ConversationScreen() {
   const [peerTyping, setPeerTyping] = useState(false);
   const listRef = useRef<FlatList<ChatMessage>>(null);
 
-  // Append & scroll helper
   const appendMessage = useCallback((m: ChatMessage) => {
     setMessages(prev => {
-      // Prevent duplicates - check if message already exists
       if (prev.some(existing => existing._id === m._id)) {
         return prev;
       }
-      // Replace optimistic message with real one
       const optimisticIndex = prev.findIndex(msg => msg._id.startsWith('optim-') && msg.text === m.text && msg.senderId === m.senderId);
       if (optimisticIndex !== -1) {
         const updated = [...prev];
@@ -50,7 +47,6 @@ export default function ConversationScreen() {
       setMessages(payload.messages);
       setLoadingHistory(false);
       setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 20);
-      // Mark all unread messages as read
       payload.messages.forEach(m => {
         if (m.senderId !== userId && !(m.readBy || []).includes(userId)) {
           socket.emit('chat:read', { conversationId, messageId: m._id });
@@ -60,7 +56,6 @@ export default function ConversationScreen() {
     const onMsg = (m: ChatMessage) => {
       if (m.conversationId !== conversationId) return;
       appendMessage(m);
-      // mark read if incoming
       if (m.senderId !== userId) {
         socket.emit('chat:read', { conversationId, messageId: m._id });
       }
@@ -92,7 +87,6 @@ export default function ConversationScreen() {
     };
   }, [conversationId, userId, appendMessage]);
 
-  // Typing emit debounce
   useEffect(() => {
     if (!conversationId || !userId) return;
     const socket = getSocket(userId);
@@ -109,7 +103,6 @@ export default function ConversationScreen() {
     if (!pendingText.trim() || !conversationId || !userId) return;
     const text = pendingText.trim();
     setPendingText('');
-    // Optimistic local message
     const optimistic: ChatMessage = {
       _id: `optim-${Date.now()}`,
       conversationId,
@@ -135,9 +128,7 @@ export default function ConversationScreen() {
           style: 'destructive',
           onPress: () => {
             console.log('Deleting message:', messageId);
-            // Optimistically remove from UI
             setMessages(prev => prev.filter(m => m._id !== messageId));
-            // Send delete request to server
             const socket = getSocket(userId);
             socket.emit('chat:delete', { conversationId, messageId });
             console.log('Emitted chat:delete event');

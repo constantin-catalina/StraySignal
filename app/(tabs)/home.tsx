@@ -9,7 +9,6 @@ export default function HomeScreen() {
   const router = useRouter();
   const { user, isLoaded } = useUser();
   
-  // Wait for Clerk to fully load before accessing user data
   if (!isLoaded) {
     return (
       <View style={styles.root}>
@@ -27,7 +26,6 @@ export default function HomeScreen() {
     );
   }
   
-  // Extract first name from multiple possible sources (OAuth providers vary)
   const firstName = user?.firstName || 
                     user?.fullName?.split(' ')[0] || 
                     user?.emailAddresses?.[0]?.emailAddress?.split('@')[0] || 
@@ -49,7 +47,6 @@ export default function HomeScreen() {
 
       <SafeAreaView style={styles.content} edges={['top']}>
         <ScrollView showsVerticalScrollIndicator={false}>
-          {/* Header Section */}
           <View style={styles.header}>
             <Image 
               source={require('@/assets/logos/color-logo.png')} 
@@ -58,15 +55,12 @@ export default function HomeScreen() {
             />
           </View>
 
-          {/* Welcome Message */}
           <View style={styles.welcomeSection}>
             <Text style={styles.welcomeTitle}>Welcome, {firstName}!</Text>
             <Text style={styles.welcomeSubtitle}>We wish you a good day.</Text>
           </View>
 
-          {/* Action Cards */}
           <View style={styles.cardsContainer}>
-            {/* Report your lost pet */}
             <TouchableOpacity 
               style={styles.card}
               activeOpacity={0.7}
@@ -83,7 +77,6 @@ export default function HomeScreen() {
               </View>
             </TouchableOpacity>
 
-            {/* View your cases */}
             <TouchableOpacity 
               style={styles.card}
               activeOpacity={0.7}
@@ -100,7 +93,6 @@ export default function HomeScreen() {
               </View>
             </TouchableOpacity>
 
-            {/* Check your pet's route */}
             <TouchableOpacity 
               style={styles.card}
               activeOpacity={0.7}
@@ -117,7 +109,6 @@ export default function HomeScreen() {
               </View>
             </TouchableOpacity>
 
-            {/* Create a printable poster */}
             <TouchableOpacity 
               style={styles.card}
               activeOpacity={0.7}

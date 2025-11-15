@@ -15,7 +15,7 @@ export default function ReportLostPet() {
   const router = useRouter();
   const { user } = useUser();
   
-  // Form state
+  
   const [petName, setPetName] = useState('');
   const [animalType, setAnimalType] = useState('');
   const [breed, setBreed] = useState('');
@@ -28,7 +28,7 @@ export default function ReportLostPet() {
   const [additionalInfo, setAdditionalInfo] = useState('');
   const [photos, setPhotos] = useState<string[]>([]);
   
-  // Location state
+  
   const [latitude, setLatitude] = useState<number | null>(null);
   const [longitude, setLongitude] = useState<number | null>(null);
   const [showMapModal, setShowMapModal] = useState(false);
@@ -40,7 +40,7 @@ export default function ReportLostPet() {
     longitudeDelta: 0.0421,
   });
 
-  // Get current location for map
+  
   const getCurrentLocation = async () => {
     try {
       let { status } = await Location.requestForegroundPermissionsAsync();
@@ -79,7 +79,7 @@ export default function ReportLostPet() {
       setLatitude(tempMarker.latitude);
       setLongitude(tempMarker.longitude);
       
-      // Reverse geocode to get address
+      
       try {
         const result = await Location.reverseGeocodeAsync({
           latitude: tempMarker.latitude,
@@ -118,7 +118,7 @@ export default function ReportLostPet() {
 
     if (!result.canceled && result.assets) {
       const newPhotos = result.assets.map(asset => asset.uri);
-      setPhotos([...photos, ...newPhotos].slice(0, 5)); // Max 5 photos
+      setPhotos([...photos, ...newPhotos].slice(0, 5)); 
     }
   };
 
@@ -127,7 +127,7 @@ export default function ReportLostPet() {
   };
 
   const handleSubmit = async () => {
-    // Validation
+    
     if (!petName.trim()) {
       Alert.alert('Missing Information', 'Please enter your pet\'s name.');
       return;
@@ -162,11 +162,11 @@ export default function ReportLostPet() {
       
       const processedPhotos = await Promise.all(
         photos.map(async (uri) => {
-          // If it's already a base64 string, return it
+          
           if (uri.startsWith('data:')) {
             return uri;
           }
-          // For local URIs, read and convert to base64
+          
           try {
             const base64 = await FileSystem.readAsStringAsync(uri, {
               encoding: 'base64',
@@ -175,7 +175,7 @@ export default function ReportLostPet() {
             return base64String;
           } catch (error) {
             console.error('Error converting image:', error);
-            return uri; // Return original URI if conversion fails
+            return uri; 
           }
         })
       );
@@ -252,7 +252,7 @@ export default function ReportLostPet() {
           <View style={styles.formContainer}>
             <Text style={styles.heading}>REPORT{'\n'}your lost pet</Text>
 
-            {/* Pet Name */}
+            {}
             <Text style={styles.questionText}>What&apos;s your pet&apos;s name?</Text>
             <TextInput
               style={styles.textInput}
@@ -262,7 +262,7 @@ export default function ReportLostPet() {
               onChangeText={setPetName}
             />
 
-            {/* Animal Type */}
+            {}
             <Text style={styles.questionText}>What type of animal is it?</Text>
             <TextInput
               style={styles.textInput}
@@ -272,7 +272,7 @@ export default function ReportLostPet() {
               onChangeText={setAnimalType}
             />
 
-            {/* Breed */}
+            {}
             <Text style={styles.questionText}>What breed is your pet?</Text>
             <TextInput
               style={styles.textInput}
@@ -282,7 +282,7 @@ export default function ReportLostPet() {
               onChangeText={setBreed}
             />
 
-            {/* Last Seen Location */}
+            {}
             <Text style={styles.questionText}>Where was your pet last seen?</Text>
             <View style={styles.locationInputContainer}>
               <TextInput
@@ -300,7 +300,7 @@ export default function ReportLostPet() {
               </TouchableOpacity>
             </View>
 
-            {/* Last Seen Date */}
+            {}
             <Text style={styles.questionText}>When was your pet last seen?</Text>
             <TouchableOpacity 
               style={styles.datePickerButton}
@@ -327,7 +327,7 @@ export default function ReportLostPet() {
               />
             )}
 
-            {/* Reward */}
+            {}
             <Text style={styles.questionText}>Are you offering a reward for your pet&apos;s return?</Text>
             <View style={styles.buttonRow}>
               <TouchableOpacity
@@ -348,7 +348,7 @@ export default function ReportLostPet() {
               </TouchableOpacity>
             </View>
 
-            {/* Distinctive Marks */}
+            {}
             <Text style={styles.questionText}>Does your pet have any distinctive marks?</Text>
             <View style={styles.buttonRow}>
               <TouchableOpacity
@@ -369,7 +369,6 @@ export default function ReportLostPet() {
               </TouchableOpacity>
             </View>
 
-            {/* Distinctive Marks Description */}
             {hasDistinctiveMarks && (
               <>
                 <Text style={styles.questionText}>If yes, what?</Text>
@@ -383,7 +382,6 @@ export default function ReportLostPet() {
               </>
             )}
 
-            {/* Additional Info */}
             <Text style={styles.questionText}>
               Can you describe how your pet got lost / any other helpful info?
             </Text>
@@ -397,7 +395,6 @@ export default function ReportLostPet() {
               numberOfLines={4}
             />
 
-            {/* Photo Upload */}
             <Text style={styles.questionText}>
               Upload at least two photos of the animal from different angles:
             </Text>
@@ -428,7 +425,6 @@ export default function ReportLostPet() {
               </View>
             </TouchableOpacity>
 
-            {/* Submit Button */}
             <TouchableOpacity style={styles.submitButton} onPress={handleSubmit}>
               <Text style={styles.submitButtonText}>SUBMIT</Text>
             </TouchableOpacity>
@@ -436,7 +432,6 @@ export default function ReportLostPet() {
         </ScrollView>
       </ImageBackground>
     </View>
-    {/* Map Picker Modal */}
     <Modal
       visible={showMapModal}
       animationType="slide"
@@ -633,7 +628,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     letterSpacing: 1,
   },
-  // Map Modal Styles
+  
   mapModalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.6)',

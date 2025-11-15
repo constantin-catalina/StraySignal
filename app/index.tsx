@@ -64,15 +64,13 @@ const styles = StyleSheet.create({
   root: { 
     flex: 1, 
     backgroundColor: '#81adc8',
-    overflow: 'hidden'  // Ensure no content bleeds outside
+    overflow: 'hidden'
   },
 
-  // header + logo
   headerSafe: { position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10 },
   header: { paddingTop: 15, paddingHorizontal: 15, alignItems: 'flex-start' },
   logo: { width: 170, height: 44 },
 
-  // layout
   content: { 
     flex: 1,
     width: '100%'
@@ -80,23 +78,21 @@ const styles = StyleSheet.create({
   center: {
     flex: 1,
     alignItems: 'center',
-    justifyContent: 'flex-end',   // dog sits over the wave, content below
+    justifyContent: 'flex-end',  
     paddingBottom: 28,
-    paddingHorizontal: 20,  // Add horizontal padding for content
+    paddingHorizontal: 20, 
     gap: 12,
     width: '100%'
   },
 
-  // dog image sized responsively based on screen dimensions
   dog: {
-    width: screenWidth * 1.1, // 110% of screen width
-    height: screenHeight * 0.45, // 45% of screen height
-    marginBottom: screenHeight * 0.15, // 13% of screen height
+    width: screenWidth * 1.1,
+    height: screenHeight * 0.45, 
+    marginBottom: screenHeight * 0.15,
     alignSelf: 'center',
-    marginHorizontal: -(screenWidth * 0.05) // 5% of screen width as negative margin
+    marginHorizontal: -(screenWidth * 0.05)
   },
 
-  // text + CTA
   title: { fontSize: 22, fontWeight: '700', color: '#23395B', textAlign: 'center' },
   subtitle: { fontSize: 14, color: '#D9D9D9', textAlign: 'center', lineHeight: 20, marginBottom: 8 },
 

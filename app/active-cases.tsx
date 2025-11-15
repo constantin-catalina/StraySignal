@@ -41,7 +41,6 @@ export default function ActiveCases() {
       const result = await response.json();
 
       if (result.success) {
-        // Filter only lost-from-home reports owned by current user
         const lostPetCases = result.data.filter(
           (report: any) => report.reportType === 'lost-from-home' && report.reportedBy === user.id
         );
@@ -55,7 +54,6 @@ export default function ActiveCases() {
     }
   }, [user?.id]);
 
-  // Refresh data when screen comes into focus
   useFocusEffect(
     useCallback(() => {
       fetchActiveCases();
@@ -93,7 +91,7 @@ export default function ActiveCases() {
 
               if (result.success) {
                 Alert.alert('Success', `${petName} has been marked as found!`);
-                fetchActiveCases(); // Refresh the list
+                fetchActiveCases();
               } else {
                 throw new Error(result.message);
               }
@@ -108,7 +106,6 @@ export default function ActiveCases() {
   };
 
   const handleViewDetails = (caseItem: LostPetCase) => {
-    // Navigate to case detail page with case data
     router.push({
       pathname: '/case-detail',
       params: {
@@ -157,7 +154,6 @@ export default function ActiveCases() {
               <View style={styles.casesContainer}>
                 {cases.map((caseItem) => (
                   <View key={caseItem._id} style={styles.caseCardWrapper}>
-                    {/* Pet Photo - Above Card */}
                     {caseItem.photos && caseItem.photos.length > 0 && (
                       <View style={styles.photoContainer}>
                         <Image
@@ -167,9 +163,7 @@ export default function ActiveCases() {
                       </View>
                     )}
 
-                    {/* Combined Card with Name, Date, and Button */}
                     <View style={styles.combinedCard}>
-                      {/* Top Section - Name, Date, and Play Button */}
                       <View style={styles.caseCard}>
                         <View style={styles.cardLeftSection}>
                           <Text style={styles.petName}>{caseItem.petName}</Text>
@@ -178,7 +172,6 @@ export default function ActiveCases() {
                           </Text>
                         </View>
 
-                        {/* View Details Button */}
                         <TouchableOpacity
                           style={styles.viewButton}
                           onPress={() => handleViewDetails(caseItem)}
@@ -187,7 +180,6 @@ export default function ActiveCases() {
                         </TouchableOpacity>
                       </View>
 
-                      {/* Mark as Found Button - Connected Below */}
                       <TouchableOpacity
                         style={styles.foundButton}
                         onPress={() => handleMarkAsFound(caseItem._id, caseItem.petName)}

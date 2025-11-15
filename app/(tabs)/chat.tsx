@@ -147,7 +147,6 @@ export default function ChatList() {
     <View style={styles.container}>
       <TopBar showRightDots={true} />
       
-      {/* Header with Profile, Title and Search */}
       <View style={styles.header}>
         <View style={styles.titleRow}>
           {user?.imageUrl ? (
