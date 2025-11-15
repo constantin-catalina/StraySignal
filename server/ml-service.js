@@ -801,12 +801,6 @@ async function trainTripletLossModel(trainingData, options = {}) {
   
   const input = tf.input({ shape: [224, 224, 3] });
   
-  
-  
-  
-  
-  
-  
   const embedding = tf.layers.dense({
     units: embeddingDim,
     activation: 'linear',
@@ -825,12 +819,12 @@ async function trainTripletLossModel(trainingData, options = {}) {
   
   const model = tf.model({ inputs: input, outputs: normalized });
   
-  console.log(`✅ Model architecture created`);
+  console.log(`Model architecture created`);
   console.log(`   Embedding dim: ${embeddingDim}`);
   console.log(`   Margin: ${margin}`);
   console.log(`   Learning rate: ${learningRate}`);
   
-  console.log('\n⚠️  NOTE: Full training requires:');
+  console.log('\nNOTE: Full training requires:');
   console.log('   1. Triplet dataset: {anchor, positive, negative} image sets');
   console.log('   2. Hard negative mining strategy');
   console.log('   3. Data augmentation pipeline');
