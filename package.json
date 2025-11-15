@@ -8,13 +8,16 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "lint": "expo lint"
+    "lint": "expo lint",
+    "server": "node server/server.js",
+    "dev": "concurrently -k -p '[{name}]' -n BACKEND,FRONTEND -c yellow,cyan \"npm:server\" \"npm:start\"",
+    "dev:clear": "concurrently -k -p '[{name}]' -n BACKEND,FRONTEND -c yellow,cyan \"npm:server\" \"expo start --clear\""
   },
   "dependencies": {
     "@clerk/clerk-expo": "^2.18.3",
     "@expo/vector-icons": "^15.0.3",
     "@react-native-async-storage/async-storage": "2.2.0",
-    "@react-native-community/datetimepicker": "^8.5.0",
+    "@react-native-community/datetimepicker": "8.4.4",
     "@react-navigation/bottom-tabs": "^7.7.1",
     "@react-navigation/elements": "^2.6.3",
     "@react-navigation/native": "^7.1.19",
@@ -57,7 +60,7 @@
     "react-native-screens": "~4.16.0",
     "react-native-svg": "15.12.1",
     "react-native-web": "~0.21.0",
-    "react-native-webview": "^13.16.0",
+    "react-native-webview": "13.15.0",
     "react-native-worklets": "0.5.1",
     "sharp": "^0.34.5",
     "socket.io": "^4.8.1",
@@ -67,7 +70,8 @@
     "@types/react": "~19.1.0",
     "eslint": "^9.25.0",
     "eslint-config-expo": "~10.0.0",
-    "typescript": "~5.9.2"
+    "typescript": "~5.9.2",
+    "concurrently": "^9.0.0"
   },
   "private": true
 }

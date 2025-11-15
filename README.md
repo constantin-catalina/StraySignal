@@ -6,6 +6,37 @@ A React Native mobile application for reuniting lost pets with their owners thro
 
 StraySignal helps pet owners and good Samaritans report lost pets and street sightings. The application uses machine learning to automatically match spotted animals with lost pet reports, providing location-based alerts to increase the chances of successful reunions.
 
+## 🛠️ Tech Stack
+
+### Frontend
+- **React Native** - Cross-platform mobile framework
+- **Expo** - Development toolchain and runtime
+- **TypeScript** - Type-safe JavaScript
+- **Expo Router** - File-based navigation
+- **React Native Maps** - Interactive map display
+- **Clerk** - Authentication and user management
+- **Socket.IO Client** - Real-time chat
+- **AsyncStorage** - Local data persistence
+
+### Backend
+- **Node.js** - JavaScript runtime
+- **Express** - Web application framework
+- **MongoDB** - NoSQL database
+- **Mongoose** - MongoDB object modeling
+- **Socket.IO** - WebSocket server for real-time communication
+- **TensorFlow.js** (@tensorflow/tfjs-node) - ML model execution
+- **Sharp** - High-performance image processing
+- **Multer** - File upload handling
+- **CORS** - Cross-origin resource sharing
+- **dotenv** - Environment variable management
+
+### Machine Learning
+- **ResNet50** (TensorFlow Hub) - Deep feature extraction (2048-d embeddings)
+- **MobileNet V2** (fallback) - Lightweight CNN for image classification
+- **Custom Color Histograms** - 8×8×8 RGB histogram analysis (512 bins)
+- **Cosine Similarity** - Feature vector comparison
+- **Histogram Intersection** - Color matching metric
+
 ## ✨ Features
 
 - **Lost Pet Reporting**: Submit detailed reports with photos, location, and pet characteristics
@@ -294,12 +325,3 @@ Invoke-RestMethod -Uri "http://localhost:3000/api/matches/reprocess-all" -Method
 ## License
 
 This project is licensed under the MIT License.
-
-
-## Acknowledgments
-
-- **TensorFlow.js** for ML capabilities
-- **Clerk** for authentication
-- **Expo** for cross-platform framework
-- **MongoDB** for database
-- **Socket.IO** for real-time chat
