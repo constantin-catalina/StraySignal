@@ -771,11 +771,9 @@ function analyzeMatchQuality(matches, feedback) {
 
 // Train custom model with triplet loss
 async function trainTripletLossModel(trainingData, options = {}) {
-  console.log('🔧 Training custom triplet loss model...');
+  console.log('Training custom triplet loss model...');
   
   const {
-    epochs = 50,
-    batchSize = 32,
     embeddingDim = 128,
     margin = 0.2,
     learningRate = 0.001,
