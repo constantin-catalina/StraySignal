@@ -109,10 +109,8 @@ export const AlertProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         // Check for ML-based matches from backend first
         if (matchesResponse && matchesResponse.ok) {
           const matchesData = await matchesResponse.json();
-          console.log('Fetched matches data:', matchesData);
           
           if (matchesData.success && matchesData.data) {
-            console.log(`Found ${matchesData.data.length} matches for user`);
             for (const match of matchesData.data) {
               // Get the spotted report details
               const spottedReport = match.spottedReportId;
@@ -122,6 +120,11 @@ export const AlertProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
               // Track this report as having a match
               matchedReportIds.add(spottedReport._id);
+
+              // Only show alerts for matches >= 80%
+              if (match.matchScore < 80) {
+                continue;
+              }
 
               const distance = calculateDistance(
                 userLat,
@@ -149,7 +152,7 @@ export const AlertProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
                 nearbyAlerts.push({
                   id: match._id,
-                  type: match.matchScore >= 90 ? 'high-match' : 'moderate-match',
+                  type: match.matchScore >= 95 ? 'high-match' : 'moderate-match',
                   animalType: spottedReport.animalType || 'animal',
                   location: locationName,
                   distance: Math.round(distance * 10) / 10,

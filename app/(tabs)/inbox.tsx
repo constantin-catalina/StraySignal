@@ -72,7 +72,7 @@ export default function Inbox() {
             </View>
           ) : (
             alerts.map((alert) => {
-              const config = getAlertConfig(alert.type);
+              const config = getAlertConfig(alert.type as 'injured' | 'high-match' | 'moderate-match');
               return (
                 <TouchableOpacity
                   key={alert.id}

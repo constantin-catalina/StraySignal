@@ -267,7 +267,7 @@ export default function PetRoute() {
         },
       });
     } catch (e) {
-      console.log('Navigation error:', e);
+      console.error('Navigation error:', e);
     }
   };
 

@@ -65,9 +65,7 @@ export default function AlertDetails() {
 
     try {
       setChecking(true);
-      const url = `${API_ENDPOINTS.MATCHES}/${params.matchId}`;
-      console.log('Checking sighting - URL:', url);
-      console.log('Checking sighting - Match ID:', params.matchId);
+      const url = `${API_ENDPOINTS.MATCHES}/${params.matchId}/check`;
       
       const response = await fetch(url, {
         method: 'PATCH',
@@ -112,9 +110,7 @@ export default function AlertDetails() {
 
       try {
         const url = `${API_ENDPOINTS.REPORTS}/${params.alertId}`;
-        console.log('Fetching report from:', url);
         const response = await fetch(url);
-        console.log('Response status:', response.status);
         
         if (response.ok) {
           const data = await response.json();

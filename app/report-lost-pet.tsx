@@ -160,8 +160,6 @@ export default function ReportLostPet() {
     try {
       Alert.alert('Uploading', 'Please wait while we submit your report...');
       
-      // Convert images to base64 for ML processing
-      console.log('Converting photos to base64...');
       const processedPhotos = await Promise.all(
         photos.map(async (uri) => {
           // If it's already a base64 string, return it
@@ -174,7 +172,6 @@ export default function ReportLostPet() {
               encoding: 'base64',
             });
             const base64String = `data:image/jpeg;base64,${base64}`;
-            console.log(`Image ${photos.indexOf(uri) + 1} converted (size: ${base64String.length})`);
             return base64String;
           } catch (error) {
             console.error('Error converting image:', error);
@@ -182,8 +179,6 @@ export default function ReportLostPet() {
           }
         })
       );
-
-      console.log('Total photos processed:', processedPhotos.length);
 
       const reportData = {
         petName,
@@ -198,11 +193,8 @@ export default function ReportLostPet() {
         distinctiveMarks: hasDistinctiveMarks ? distinctiveMarks : '',
         additionalInfo,
         photos: processedPhotos,
-        reportedBy: user?.id || 'anonymous', // Add user ID to identify owner
+        reportedBy: user?.id || 'anonymous',
       };
-
-  console.log('Submitting to:', API_ENDPOINTS.REPORTS_LOST_PET);
-      console.log('Report data:', { ...reportData, photos: `[${reportData.photos.length} photos]` });
       
       const response = await fetch(API_ENDPOINTS.REPORTS_LOST_PET, {
         method: 'POST',
@@ -212,11 +204,7 @@ export default function ReportLostPet() {
         body: JSON.stringify(reportData),
       });
 
-      console.log('Response status:', response.status);
-      
-      // Get response text first to see what we're receiving
       const responseText = await response.text();
-      console.log('Response text:', responseText.substring(0, 200));
 
       let result;
       try {

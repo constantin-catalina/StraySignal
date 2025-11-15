@@ -29,14 +29,9 @@ if (!MONGODB_URI) {
 const MAX_RETRIES = 5;
 let attempt = 0;
 
-function sanitize(uri) {
-  // Hide credentials for logging
-  return uri.replace(/:\w+@/, ':****@');
-}
-
 function connectWithRetry() {
   attempt++;
-  console.log(`[DB] Attempt ${attempt}/${MAX_RETRIES} connecting to ${sanitize(MONGODB_URI)}${MONGODB_DB_NAME ? ' (dbName override: ' + MONGODB_DB_NAME + ')' : ''}`);
+  console.log(`[DB] Attempt ${attempt}/${MAX_RETRIES} connecting to mongodb`);
   const options = {};
   if (MONGODB_DB_NAME) options.dbName = MONGODB_DB_NAME;
   mongoose.connect(MONGODB_URI, options)
@@ -678,7 +673,7 @@ function toRad(degrees) {
 // ============ ML MATCHING ENDPOINTS ============
 
 // Initialize ML model on server start
-mlService.initializeModel().catch(err => {
+mlService.initializeBaseModel().catch(err => {
   console.error('Failed to initialize ML model:', err);
   console.warn('ML matching will not be available');
 });

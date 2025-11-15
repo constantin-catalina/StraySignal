@@ -43,23 +43,17 @@ export default function PosterGenerator() {
     const loadPhoneSettings = async () => {
       if (!user?.id) return;
       try {
-        const key = `user_profile_data:${user.id}`;
-        const stored = await AsyncStorage.getItem(key);
-        console.log('Stored profile data:', stored);
+        const storageKey = `user_profile_data:${user.id}`;
+        const stored = await AsyncStorage.getItem(storageKey);
         if (stored) {
           const data = JSON.parse(stored);
-          console.log('Show phone number setting:', data.showPhoneNumber);
           setShowPhone(data.showPhoneNumber || false);
-          // Get phone from stored profile data
           if (data.phone) {
-            console.log('Using phone from stored profile:', data.phone);
             setUserPhone(data.phone);
           }
         }
-        // Also check Clerk phone as fallback
         const clerkPhone = user.phoneNumbers?.[0]?.phoneNumber;
         if (clerkPhone) {
-          console.log('Using phone from Clerk:', clerkPhone);
           setUserPhone(clerkPhone);
         }
       } catch (e) {

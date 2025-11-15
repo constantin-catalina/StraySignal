@@ -58,27 +58,16 @@ export default function Profile() {
     try {
       if (!user?.id) return;
 
-      console.log('Loading profile for ClerkId:', user.id);
-      console.log('Fetching from:', `${API_ENDPOINTS.USERS}/${user.id}`);
-
-      // Try to load from MongoDB first
       const response = await fetch(`${API_ENDPOINTS.USERS}/${user.id}`);
-      
-      console.log('Profile fetch response status:', response.status);
       
       if (response.ok) {
         const data = await response.json();
-        console.log('Profile data from backend:', data);
         if (data.success && data.data) {
-          // Load fresh data from backend
           setProfileData(data.data);
           return;
         }
-      } else {
-        console.log('Profile not found in backend for this ClerkId');
       }
 
-      // Fallback to AsyncStorage if MongoDB fetch fails
       if (storageKey) {
         const savedData = await AsyncStorage.getItem(storageKey);
         if (savedData) {

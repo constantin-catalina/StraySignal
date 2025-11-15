@@ -325,9 +325,7 @@ export default function Signal() {
           const mlResponse = await fetch(`${API_ENDPOINTS.MATCHES}/process/${reportId}`, {
             method: 'POST',
           });
-          console.log('ML matching response status:', mlResponse.status);
-          const mlResult = await mlResponse.json();
-          console.log('ML matching result:', mlResult);
+          await mlResponse.json();
         } catch (err) {
           console.error('ML matching error:', err);
           // Don't show error to user - ML matching is a background process
@@ -710,7 +708,7 @@ const LostPetDetailModal: React.FC<LostPetDetailModalProps> = ({ visible, onClos
       }
       Linking.openURL(telUrl);
     } catch (e) {
-      console.log('Call owner error:', e);
+      console.error('Call owner error:', e);
       Alert.alert('Error', 'Failed to initiate call.');
     }
   };

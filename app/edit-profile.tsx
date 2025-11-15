@@ -151,11 +151,7 @@ export default function EditProfile() {
         radiusPreference: parseInt(radiusPreference) || 2,
         profileImage,
       };
-      
-      console.log('Saving profile data:', profileData);
-      console.log('API endpoint:', API_ENDPOINTS.USERS);
 
-      // Save to MongoDB via API
       let response;
       try {
         response = await fetch(API_ENDPOINTS.USERS, {
@@ -170,9 +166,6 @@ export default function EditProfile() {
         throw new Error(`Network error: ${fetchError instanceof Error ? fetchError.message : 'Unknown'}`);
       }
 
-      console.log('Response status:', response.status);
-      console.log('Response headers:', response.headers);
-
       if (!response.ok) {
         let errorData;
         try {
@@ -185,10 +178,8 @@ export default function EditProfile() {
         throw new Error(`Failed to save profile to server: ${response.status}`);
       }
 
-      const result = await response.json();
-      console.log('Save successful:', result);
+      await response.json();
 
-      // Also save to AsyncStorage for offline access
       if (storageKey) {
         await AsyncStorage.setItem(storageKey, JSON.stringify(profileData));
       }
