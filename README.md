@@ -6,6 +6,16 @@ A React Native mobile application for reuniting lost pets with their owners thro
 
 StraySignal helps pet owners and good Samaritans report lost pets and street sightings. The application uses machine learning to automatically match spotted animals with lost pet reports, providing location-based alerts to increase the chances of successful reunions.
 
+## 🎨 UI Preview
+
+![StraySignal UI Overview](assets/design/app_overview.png)
+
+### Auth Flow
+![Auth Screens](assets/design/auth_flow.png)
+
+### Map & Alerts
+![Map & Alerts](assets/design/map_screens.png)
+
 ## 🛠️ Tech Stack
 
 ### Frontend
