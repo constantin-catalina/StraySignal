@@ -5,11 +5,9 @@ export default {
     name: 'StraySignal',
     slug: 'straysignal',
     scheme: 'straysignal',
+    icon: './assets/icons/StraySignal.png',
     extra: {
       clerkPublishableKey: process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY,
-      
-      
-      
       apiUrl: process.env.EXPO_PUBLIC_API_URL,
     },
     plugins: [
