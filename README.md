@@ -206,9 +206,9 @@ finalScore = baseScore + metadataBonus
 ### Metadata Bonuses
 - **Animal Type Match**: +2%
 - **Temporal Proximity**:
-  - ≤3 days: +6%
-  - ≤7 days: +3%
-  - >30 days: -8%
+  - <=3 days: +6%
+  - <=7 days: +3%
+  - >=30 days: -8%
 
 ### Thresholds
 - **Display Minimum**: 55%
